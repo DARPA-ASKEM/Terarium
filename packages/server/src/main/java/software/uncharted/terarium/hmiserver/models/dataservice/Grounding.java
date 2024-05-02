@@ -4,6 +4,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+
 import lombok.Data;
 import lombok.experimental.Accessors;
 import software.uncharted.terarium.hmiserver.annotations.TSModel;
@@ -24,4 +25,11 @@ public class Grounding implements Serializable {
 	/** (Optional) Additional context that informs the grounding */
 	@TSOptional
 	private Map<String, Object> context;
+
+	public Grounding clone() {
+		final Grounding clone = new Grounding();
+		clone.setIdentifiers(this.identifiers);
+		clone.setContext(this.context);
+		return clone;
+	}
 }

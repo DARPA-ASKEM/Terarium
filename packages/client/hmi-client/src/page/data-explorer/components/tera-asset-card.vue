@@ -63,7 +63,10 @@
 			/>
 			<div
 				class="parameters"
-				v-if="resourceType === ResourceType.MODEL && (asset as Model).semantics?.ode?.parameters"
+				v-if="
+					resourceType === ResourceType.MODEL &&
+					(asset as Model).semantics?.ode?.parameters
+				"
 			>
 				PARAMETERS:
 				{{ (asset as Model).semantics?.ode.parameters }}
@@ -71,7 +74,9 @@
 			</div>
 			<div class="features" v-else-if="resourceType === ResourceType.DATASET">
 				FEATURES:
-				<span v-for="(feature, index) in formatFeatures()" :key="index"> {{ feature }}, </span>
+				<span v-for="(feature, index) in formatFeatures()" :key="index">
+					{{ feature }},
+				</span>
 			</div>
 			<footer><!--pill tags if already in another project--></footer>
 		</main>
@@ -95,7 +100,9 @@
 						:key="index"
 					/>
 					<a
-						v-else-if="extraction.properties.doi && extraction.properties.documentBibjson?.link"
+						v-else-if="
+							extraction.properties.doi && extraction.properties.documentBibjson?.link
+						"
 						:href="extraction.properties.documentBibjson.link[0].url"
 						@click.stop
 						rel="noreferrer noopener"
@@ -129,22 +136,22 @@
 </template>
 
 <script setup lang="ts">
-import { isEmpty } from 'lodash';
-import { computed, ref, watch, ComputedRef } from 'vue';
-import { XDDExtractionType } from '@/types/XDD';
+import TeraCarousel from '@/components/widgets/tera-carousel.vue';
+import { useDragEvent } from '@/services/drag-drop';
 import type {
-	Extraction,
-	XDDUrlExtraction,
-	DocumentAsset,
 	Dataset,
+	Document,
+	DocumentAsset,
+	Extraction,
 	Model,
-	Document
+	XDDUrlExtraction
 } from '@/types/Types';
+import { XDDExtractionType } from '@/types/XDD';
 import { ResourceType, ResultType } from '@/types/common';
 import { DocumentSource } from '@/types/search';
 import * as textUtil from '@/utils/text';
-import { useDragEvent } from '@/services/drag-drop';
-import TeraCarousel from '@/components/widgets/tera-carousel.vue';
+import { isEmpty } from 'lodash';
+import { ComputedRef, computed, ref, watch } from 'vue';
 
 // This type is for easy frontend integration with the rest of the extraction types (just for use here)
 type UrlExtraction = {
@@ -202,7 +209,8 @@ const urlExtractions = computed(() => {
 const extractions: ComputedRef<UrlExtraction[] & Extraction[]> = computed(() => {
 	if ((props.asset as Document).knownEntities.askemObjects) {
 		const allExtractions = [
-			...((props.asset as Document).knownEntities.askemObjects as UrlExtraction[] & Extraction[]),
+			...((props.asset as Document).knownEntities.askemObjects as UrlExtraction[] &
+				Extraction[]),
 			...(urlExtractions.value as UrlExtraction[] & Extraction[])
 		];
 
@@ -272,7 +280,7 @@ const formatDetails = computed(() => {
 	}
 
 	if (props.resourceType === ResourceType.DATASET) {
-		return (props.asset as Dataset).datasetUrl;
+		return (props.asset as Dataset).datasetUrls;
 	}
 
 	return null;

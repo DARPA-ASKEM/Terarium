@@ -1,8 +1,10 @@
 package software.uncharted.terarium.hmiserver.models.dataservice.dataset;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import java.util.List;
 import java.util.Map;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import lombok.Data;
 import lombok.experimental.Accessors;
 import software.uncharted.terarium.hmiserver.annotations.TSModel;
@@ -19,7 +21,8 @@ public class DatasetColumn {
 	private String name;
 
 	/**
-	 * Datatype. One of: unknown, boolean, string, char, integer, int, float, double, timestamp, datetime, date, time
+	 * Datatype. One of: unknown, boolean, string, char, integer, int, float,
+	 * double, timestamp, datetime, date, time
 	 */
 	@JsonAlias("data_type")
 	private ColumnType dataType;
@@ -76,5 +79,19 @@ public class DatasetColumn {
 		} else {
 			this.metadata.putAll(metadata);
 		}
+	}
+
+	public DatasetColumn clone() {
+		final DatasetColumn clone = new DatasetColumn();
+
+		clone.name = this.name;
+		clone.dataType = this.dataType;
+		clone.formatStr = this.formatStr;
+		clone.annotations = this.annotations != null ? List.copyOf(this.annotations) : null;
+		clone.metadata = this.metadata != null ? Map.copyOf(this.metadata) : null;
+		clone.grounding = this.grounding != null ? this.grounding.clone() : null;
+		clone.description = this.description;
+
+		return clone;
 	}
 }

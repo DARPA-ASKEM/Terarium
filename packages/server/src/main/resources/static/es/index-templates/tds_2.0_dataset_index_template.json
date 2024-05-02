@@ -39,15 +39,6 @@
                         }
                     }
                 },
-                "datasetUrl": {
-                    "type": "text",
-                    "fields": {
-                        "keyword": {
-                            "type": "keyword",
-                            "ignore_above": 512
-                        }
-                    }
-                },
                 "columns": {
                     "type": "nested",
                     "properties": {

@@ -2,11 +2,17 @@ package software.uncharted.terarium.hmiserver.models.dataservice.dataset;
 
 import java.io.Serial;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.List;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.databind.JsonNode;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -15,6 +21,8 @@ import software.uncharted.terarium.hmiserver.annotations.TSModel;
 import software.uncharted.terarium.hmiserver.annotations.TSOptional;
 import software.uncharted.terarium.hmiserver.models.TerariumAsset;
 import software.uncharted.terarium.hmiserver.models.dataservice.Grounding;
+import software.uncharted.terarium.hmiserver.models.dataservice.JsonConverter;
+import software.uncharted.terarium.hmiserver.models.dataservice.ObjectConverter;
 
 /** Represents a dataset document from TDS */
 @EqualsAndHashCode(callSuper = true)
@@ -50,27 +58,21 @@ public class Dataset extends TerariumAsset {
 	private List<String> fileNames;
 
 	/**
-	 * (Optional) Url from which the dataset can be downloaded/fetched TODO: IS THIS
-	 * NEEDED? IS THIS FROM OLD TDS?
-	 * https://github.com/DARPA-ASKEM/terarium/issues/3194
-	 */
-	@TSOptional
-	@JsonAlias("dataset_url")
-	private String datasetUrl;
-
-	/**
 	 * (Optional) List of urls from which the dataset can be downloaded/fetched.
-	 * Used for ESGF datasets
 	 */
 	@TSOptional
 	private List<String> datasetUrls;
 
 	/** Information regarding the columns that make up the dataset */
 	@TSOptional
+	@Convert(converter = ObjectConverter.class)
+	@JdbcTypeCode(SqlTypes.JSON)
 	private List<DatasetColumn> columns;
 
 	/** (Optional) Unformatted metadata about the dataset */
 	@TSOptional
+	@Convert(converter = JsonConverter.class)
+	@Column(columnDefinition = "text")
 	private JsonNode metadata;
 
 	/** (Optional) Source of dataset */
@@ -82,5 +84,26 @@ public class Dataset extends TerariumAsset {
 	 * whole
 	 */
 	@TSOptional
+	@Convert(converter = ObjectConverter.class)
+	@JdbcTypeCode(SqlTypes.JSON)
 	private Grounding grounding;
+
+	@Override
+	public Dataset clone() {
+		final Dataset clone = new Dataset();
+
+		cloneSuperFields(clone);
+
+		clone.userId = this.userId;
+		clone.esgfId = this.esgfId;
+		clone.dataSourceDate = this.dataSourceDate;
+		clone.fileNames = this.fileNames != null ? new ArrayList<>(this.fileNames) : null;
+		clone.datasetUrls = this.datasetUrls != null ? new ArrayList<>(this.datasetUrls) : null;
+		clone.columns = this.columns != null ? new ArrayList<>(this.columns) : null;
+		clone.metadata = this.metadata;
+		clone.source = this.source;
+		clone.grounding = this.grounding.clone();
+
+		return clone;
+	}
 }

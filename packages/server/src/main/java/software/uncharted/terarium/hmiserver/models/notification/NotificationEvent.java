@@ -1,8 +1,15 @@
 package software.uncharted.terarium.hmiserver.models.notification;
 
+import java.io.Serial;
+import java.sql.Timestamp;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.UUID;
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -12,11 +19,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.validation.constraints.NotNull;
-import java.io.Serial;
-import java.sql.Timestamp;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.UUID;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -47,7 +49,8 @@ public class NotificationEvent {
 
 	@Schema(accessMode = Schema.AccessMode.READ_ONLY)
 	@Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
-	@NotNull private Timestamp createdOn;
+	@NotNull
+	private Timestamp createdOn;
 
 	@Schema(accessMode = Schema.AccessMode.READ_ONLY)
 	@Column(columnDefinition = "TIMESTAMP WITH TIME ZONE")
@@ -63,11 +66,6 @@ public class NotificationEvent {
 	@Convert(converter = JsonConverter.class)
 	@Column(columnDefinition = "text")
 	private JsonNode data;
-
-	public NotificationEvent setData(final JsonNode arg) {
-		data = arg;
-		return this;
-	}
 
 	public <T> NotificationEvent setData(final T arg) {
 		data = new ObjectMapper().valueToTree(arg);

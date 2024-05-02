@@ -3,12 +3,12 @@
  */
 
 import API from '@/api/api';
-import { logger } from '@/utils/logger';
-import type { CsvAsset, CsvColumnStats, Dataset, PresignedURL } from '@/types/Types';
-import { Ref } from 'vue';
-import { AxiosResponse } from 'axios';
 import { RunResults } from '@/types/SimulateConfig';
+import type { CsvAsset, CsvColumnStats, Dataset, PresignedURL } from '@/types/Types';
+import { logger } from '@/utils/logger';
+import { AxiosResponse } from 'axios';
 import { cloneDeep } from 'lodash';
+import { Ref } from 'vue';
 
 /**
  * Get all datasets
@@ -36,17 +36,21 @@ async function searchClimateDatasets(query: string): Promise<Dataset[] | null> {
  */
 async function getDataset(datasetId: string): Promise<Dataset | null> {
 	const response = await API.get(`/datasets/${datasetId}`).catch((error) => {
-		logger.error(`Error: data-service was not able to retrieve the dataset ${datasetId} ${error}`);
+		logger.error(
+			`Error: data-service was not able to retrieve the dataset ${datasetId} ${error}`
+		);
 	});
 	return response?.data ?? null;
 }
 
 async function getClimateDataset(datasetId: string): Promise<Dataset | null> {
-	const response = await API.get(`/climatedata/queries/fetch-esgf/${datasetId}`).catch((error) => {
-		logger.error(
-			`Error: climate data service was not able to retrieve the dataset ${datasetId} ${error}`
-		);
-	});
+	const response = await API.get(`/climatedata/queries/fetch-esgf/${datasetId}`).catch(
+		(error) => {
+			logger.error(
+				`Error: climate data service was not able to retrieve the dataset ${datasetId} ${error}`
+			);
+		}
+	);
 	return response?.data ?? null;
 }
 
@@ -81,7 +85,9 @@ async function getClimateSubsetId(
 	if (response.status === 200) {
 		return response.data;
 	}
-	logger.error(`Climate-data service was not able to retrieve the subset of the dataset ${esgfId}`);
+	logger.error(
+		`Climate-data service was not able to retrieve the subset of the dataset ${esgfId}`
+	);
 	return null;
 }
 
@@ -192,7 +198,7 @@ async function createNewDatasetFromGithubFile(
 	// Create a new dataset with the same name as the file, and post the metadata to TDS
 	const dataset: Dataset = {
 		name,
-		datasetUrl: url,
+		datasetUrls: [url],
 		description: path,
 		fileNames: [fileName],
 		userId
@@ -394,20 +400,20 @@ const getCsvColumnStats = (csvColumn: number[]): CsvColumnStats => {
 };
 
 export {
-	getAll,
-	searchClimateDatasets,
-	getDataset,
-	getClimateDataset,
-	getClimateSubsetId,
-	getClimateDatasetPreview,
-	updateDataset,
-	getBulkDatasets,
-	downloadRawFile,
-	getDownloadURL,
+	createCsvAssetFromRunResults,
+	createDataset,
+	createDatasetFromSimulationResult,
 	createNewDatasetFromFile,
 	createNewDatasetFromGithubFile,
-	createDatasetFromSimulationResult,
+	downloadRawFile,
+	getAll,
+	getBulkDatasets,
+	getClimateDataset,
+	getClimateDatasetPreview,
+	getClimateSubsetId,
+	getDataset,
+	getDownloadURL,
 	saveDataset,
-	createCsvAssetFromRunResults,
-	createDataset
+	searchClimateDatasets,
+	updateDataset
 };
