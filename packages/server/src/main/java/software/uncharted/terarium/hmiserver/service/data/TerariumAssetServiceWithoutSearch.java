@@ -1,7 +1,5 @@
 package software.uncharted.terarium.hmiserver.service.data;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
@@ -10,10 +8,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+
 import javax.ws.rs.NotFoundException;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -28,6 +25,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.micrometer.observation.annotation.Observed;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import software.uncharted.terarium.hmiserver.configuration.Config;
 import software.uncharted.terarium.hmiserver.models.TerariumAsset;
 import software.uncharted.terarium.hmiserver.models.dataservice.PresignedURL;
@@ -36,7 +40,8 @@ import software.uncharted.terarium.hmiserver.service.s3.S3ClientService;
 import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
 
 /**
- * Base class for services that manage TerariumAssets without syncing to Elasticsearch.
+ * Base class for services that manage TerariumAssets without syncing to
+ * Elasticsearch.
  *
  * @param <T> The type of asset this service manages
  * @param <R> The respository of the asset this service manages
@@ -45,8 +50,7 @@ import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
 @Data
 @RequiredArgsConstructor
 @Slf4j
-public abstract class TerariumAssetServiceWithoutSearch<
-				T extends TerariumAsset, R extends PSCrudSoftDeleteRepository<T, UUID>>
+public abstract class TerariumAssetServiceWithoutSearch<T extends TerariumAsset, R extends PSCrudSoftDeleteRepository<T, UUID>>
 		implements ITerariumAssetService<T> {
 
 	protected final ObjectMapper objectMapper;
@@ -94,7 +98,7 @@ public abstract class TerariumAssetServiceWithoutSearch<
 	/**
 	 * Get a list of assets, this includes all assets, not just searchable ones.
 	 *
-	 * @param page The page number
+	 * @param page     The page number
 	 * @param pageSize The number of assets per page
 	 * @return The list of assets
 	 */
@@ -165,9 +169,10 @@ public abstract class TerariumAssetServiceWithoutSearch<
 	 *
 	 * @param asset The asset to update
 	 * @return The updated asset
-	 * @throws IOException If there is an error updating the asset
-	 * @throws IllegalArgumentException If the asset tries to move from permanent to temporary
-	 * @throws NotFoundException If the original asset does not exist
+	 * @throws IOException              If there is an error updating the asset
+	 * @throws IllegalArgumentException If the asset tries to move from permanent to
+	 *                                  temporary
+	 * @throws NotFoundException        If the original asset does not exist
 	 */
 	@Override
 	@Observed(name = "function_profile")
@@ -247,12 +252,12 @@ public abstract class TerariumAssetServiceWithoutSearch<
 	/**
 	 * Get a presigned URL for uploading a file to S3
 	 *
-	 * @param id The ID of the asset to upload to
+	 * @param id       The ID of the asset to upload to
 	 * @param filename The name of the file to upload
 	 * @return The presigned URL
 	 */
 	@Observed(name = "function_profile")
-	public PresignedURL getUploadUrl(final UUID id, final String filename) {
+	private PresignedURL getUploadUrl(final UUID id, final String filename) {
 
 		final PresignedURL presigned = new PresignedURL();
 		presigned.setUrl(s3ClientService
@@ -265,7 +270,7 @@ public abstract class TerariumAssetServiceWithoutSearch<
 	/**
 	 * Get a presigned URL for downloading a file from S3
 	 *
-	 * @param id The ID of the asset to download from
+	 * @param id       The ID of the asset to download from
 	 * @param filename The name of the file to download
 	 * @return The presigned URL
 	 */
@@ -305,8 +310,7 @@ public abstract class TerariumAssetServiceWithoutSearch<
 
 	@Observed(name = "function_profile")
 	public Optional<String> fetchFileAsString(final UUID uuid, final String filename) throws IOException {
-		try (final CloseableHttpClient httpclient =
-				HttpClients.custom().disableRedirectHandling().build()) {
+		try (final CloseableHttpClient httpclient = HttpClients.custom().disableRedirectHandling().build()) {
 
 			final Optional<PresignedURL> url = getDownloadUrl(uuid, filename);
 			if (url.isEmpty()) {
@@ -321,8 +325,7 @@ public abstract class TerariumAssetServiceWithoutSearch<
 
 	@Observed(name = "function_profile")
 	public Optional<byte[]> fetchFileAsBytes(final UUID uuid, final String filename) throws IOException {
-		try (final CloseableHttpClient httpclient =
-				HttpClients.custom().disableRedirectHandling().build()) {
+		try (final CloseableHttpClient httpclient = HttpClients.custom().disableRedirectHandling().build()) {
 
 			final Optional<PresignedURL> url = getDownloadUrl(uuid, filename);
 			if (url.isEmpty()) {
@@ -336,11 +339,10 @@ public abstract class TerariumAssetServiceWithoutSearch<
 	}
 
 	@Observed(name = "function_profile")
-	public void uploadFile(
+	public Integer uploadFile(
 			final UUID uuid, final String filename, final HttpEntity fileEntity, final ContentType contentType)
 			throws IOException {
-		try (final CloseableHttpClient httpclient =
-				HttpClients.custom().disableRedirectHandling().build()) {
+		try (final CloseableHttpClient httpclient = HttpClients.custom().disableRedirectHandling().build()) {
 
 			final PresignedURL presignedURL = getUploadUrl(uuid, filename);
 			final HttpPut put = new HttpPut(presignedURL.getUrl());
@@ -351,7 +353,16 @@ public abstract class TerariumAssetServiceWithoutSearch<
 				throw new IOException("Failed to upload file to S3: "
 						+ response.getStatusLine().getReasonPhrase());
 			}
+			return response.getStatusLine().getStatusCode();
 		}
+	}
+
+	@Observed(name = "function_profile")
+	public Integer uploadFile(
+			final UUID uuid, final String filename, final HttpEntity fileEntity)
+			throws IOException {
+
+		return uploadFile(uuid, filename, fileEntity, ContentType.parse(fileEntity.getContentType().getValue()));
 	}
 
 	private String getPath(final UUID id, final String filename) {
