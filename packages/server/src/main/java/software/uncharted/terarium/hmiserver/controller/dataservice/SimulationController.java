@@ -9,8 +9,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.springframework.http.HttpStatus;
@@ -25,7 +28,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -304,6 +309,30 @@ public class SimulationController {
 		} catch (final IOException e) {
 			final String error = String.format("Failed to add simulation %s result as dataset to project %s", id,
 					projectId);
+			log.error(error, e);
+			throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, error);
+		}
+	}
+
+	@GetMapping("/{id}/upload-file")
+	@Secured(Roles.USER)
+	@Operation(summary = "Gets a presigned url to upload the simulation results")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Upload successful", content = @Content(mediaType = "application/json", schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = PresignedURL.class))),
+			@ApiResponse(responseCode = "500", description = "There was an issue retrieving the presigned url", content = @Content)
+	})
+	public ResponseEntity<Void> uploadData(
+			@PathVariable("id") final UUID id,
+			@RequestParam("filename") final String filename,
+			@RequestPart("file") final MultipartFile input) {
+		try {
+
+			final byte[] fileAsBytes = input.getBytes();
+			final HttpEntity fileEntity = new ByteArrayEntity(fileAsBytes, ContentType.APPLICATION_OCTET_STREAM);
+			simulationService.uploadFile(id, filename, fileEntity, ContentType.parse(input.getContentType()));
+			return ResponseEntity.ok(null);
+		} catch (final Exception e) {
+			final String error = "Unable to get upload url";
 			log.error(error, e);
 			throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, error);
 		}
