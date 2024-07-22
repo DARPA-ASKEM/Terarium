@@ -24,6 +24,96 @@ export interface ForecastChartLayer {
 	groupField?: string;
 }
 
+export interface HistogramChartOptions {
+	title: string;
+	width: number;
+	height: number;
+	xAxisTitle: string;
+	yAxisTitle: string;
+	maxBins?: number;
+	variables: { field: string; label?: string; width: number; color: string }[];
+}
+
+export const createHistogramChart = (dataset: Record<string, any>[], options: HistogramChartOptions) => {
+	const maxBins = options.maxBins ?? 10;
+	const axisColor = '#EEE';
+	const labelColor = '#667085';
+	const labelFontWeight = 'normal';
+	const globalFont = 'Figtree';
+	const titleObj = options.title
+		? {
+				text: options.title,
+				anchor: 'start',
+				subtitle: ' ',
+				subtitlePadding: 4
+			}
+		: null;
+
+	const barMinGapWidth = 4;
+	const xDiff = 32; // Diff between inner chart content width and the outer box width
+	const maxBarWidth = Math.max(...options.variables.map((v) => v.width));
+	const reaminingXSpace = options.width - xDiff - maxBins * (maxBarWidth + barMinGapWidth);
+	const xPadding = reaminingXSpace < 0 ? barMinGapWidth : reaminingXSpace / 2;
+
+	const xaxis = {
+		domainColor: axisColor,
+		tickColor: { value: axisColor },
+		labelColor: { value: labelColor },
+		labelFontWeight,
+		title: options.xAxisTitle,
+		gridColor: '#EEE',
+		gridOpacity: 1.0
+	};
+	const yaxis = structuredClone(xaxis);
+	yaxis.title = options.yAxisTitle;
+
+	const legendProperties = {
+		title: null,
+		padding: { value: 0 },
+		strokeColor: null,
+		orient: 'top',
+		direction: 'horizontal',
+		symbolStrokeWidth: 4,
+		symbolSize: 200,
+		labelFontSize: 12,
+		labelOffset: 4
+	};
+
+	const createLayers = (opts) => {
+		const colorScale = {
+			domain: opts.variables.map((v) => v.label ?? v.field),
+			range: opts.variables.map((v) => v.color)
+		};
+		return opts.variables.map((varOption) => ({
+			mark: { type: 'bar', width: varOption.width },
+			encoding: {
+				x: { bin: { maxbins: maxBins }, field: varOption.field, axis: xaxis, scale: { padding: xPadding } },
+				y: { aggregate: 'count', axis: yaxis },
+				color: {
+					legend: { ...legendProperties },
+					type: 'nominal',
+					datum: varOption.label ?? varOption.field,
+					scale: colorScale
+				}
+			}
+		}));
+	};
+
+	const spec = {
+		$schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+		title: titleObj,
+		width: options.width,
+		height: options.height,
+		autosize: { type: 'fit' },
+		data: { values: dataset },
+		layer: createLayers(options),
+		config: {
+			font: globalFont
+		}
+	};
+	return spec;
+};
+
 /**
  * Generate Vegalite specs for simulation/forecast charts. The chart can contain:
  *  - sampling layer: multiple forecast runsk
@@ -356,7 +446,7 @@ export function createOptimizeChart(
 					y: {
 						field: 'start',
 						type: 'quantitative',
-						title: `${isMinimized ? 'Max' : 'Min'} value of ${targetVariable} at all times`
+						title: `${isMinimized ? 'Max' : 'Min'} value of ${targetVariable} at all timepoints`
 					},
 					y2: { field: 'end' },
 					x: {
@@ -369,7 +459,7 @@ export function createOptimizeChart(
 						field: 'tag',
 						type: 'nominal',
 						scale: {
-							domain: ['out', 'in'],
+							domain: ['failing', 'passing'],
 							range: ['#FFAB00', '#1B8073']
 						}
 					}
