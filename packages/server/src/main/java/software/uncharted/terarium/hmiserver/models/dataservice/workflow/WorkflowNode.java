@@ -45,8 +45,8 @@ public class WorkflowNode<T> extends SupportAdditionalProperties implements Seri
 	@TSOptional
 	private UUID active;
 
-	private List<JsonNode> inputs;
-	private List<JsonNode> outputs;
+	private List<WorkflowInputPort> inputs;
+	private List<WorkflowOutputPort> outputs;
 
 	private String status;
 
