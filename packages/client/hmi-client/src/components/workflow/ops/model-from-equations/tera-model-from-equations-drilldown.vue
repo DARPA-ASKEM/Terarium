@@ -139,11 +139,11 @@ import Textarea from 'primevue/textarea';
 import TeraDrilldown from '@/components/drilldown/tera-drilldown.vue';
 import TeraDrilldownPreview from '@/components/drilldown/tera-drilldown-preview.vue';
 import TeraAssetBlock from '@/components/widgets/tera-asset-block.vue';
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
-import type { Card, DocumentAsset, Model } from '@/types/Types';
+import { computed, onMounted, onUnmounted, onBeforeUnmount, ref, watch } from 'vue';
+import { downloadDocumentAsset, getDocumentAsset, getDocumentFileAsText } from '@/services/document-assets';
+import type { Card, ClientEvent, DocumentAsset, Model } from '@/types/Types';
 import { cloneDeep, isEmpty } from 'lodash';
 import { equationsToAMR, type EquationsToAMRRequest } from '@/services/knowledge';
-import { downloadDocumentAsset, getDocumentAsset, getDocumentFileAsText } from '@/services/document-assets';
 import { enrichModelMetadata, equationsFromImage } from '@/services/goLLM';
 import { getModel, updateModel } from '@/services/model';
 import { useProjects } from '@/composables/project';
@@ -155,6 +155,10 @@ import TeraSliderPanel from '@/components/widgets/tera-slider-panel.vue';
 import TeraDrilldownSection from '@/components/drilldown/tera-drilldown-section.vue';
 import TeraPdfEmbed from '@/components/widgets/tera-pdf-embed.vue';
 import TeraTextEditor from '@/components/documents/tera-text-editor.vue';
+
+import { ClientEventType, ProgressState } from '@/types/Types';
+import { subscribe, unsubscribe } from '@/services/ClientEventService';
+import type { ExtractionStatusUpdate } from '@/types/common';
 import { ModelFromEquationsOperation, ModelFromEquationsState, EquationBlock } from './model-from-equations-operation';
 
 const emit = defineEmits(['close', 'update-state', 'append-output', 'select-output']);
@@ -441,6 +445,27 @@ watch(
 	},
 	{ immediate: true }
 );
+
+onMounted(async () => {
+	console.log('testz');
+	await subscribe(ClientEventType.ExtractionPdf, subscribeToExtraction);
+});
+
+async function subscribeToExtraction(event: ClientEvent<ExtractionStatusUpdate>) {
+	console.log('event.data.data', event.data.data);
+	console.log(' props.node.inputs', props.node.inputs);
+	const documentId = props.node.inputs?.[0].value?.[0]?.documentId;
+	if (!documentId || !event.data || event.data.data.documentId !== documentId) return;
+	const status = event.data.state;
+	// // FIXME: adding the 'dispatching' check since there seems to be an issue with the status of the extractions.
+	if (status === ProgressState.Complete || event.data.message.includes('Dispatching')) {
+		document.value = await getDocumentAsset(documentId);
+	}
+}
+
+onUnmounted(async () => {
+	await unsubscribe(ClientEventType.ExtractionPdf, subscribeToExtraction);
+});
 </script>
 
 <style scoped>
