@@ -255,14 +255,14 @@ onMounted(async () => {
 		const state = cloneDeep(props.node.state);
 		if (state.equations.length) return;
 
-		if (document.value?.metadata?.equations) {
-			documentEquations.value = document.value.metadata.equations.flatMap((page, index) =>
-				page.map((equation) => {
+		if (document.value?.extractions) {
+			documentEquations.value = document.value.extractions.flatMap((extraction) =>
+				extraction.equations.map((equation) => {
 					const asset: AssetBlock<EquationBlock> = {
 						name: 'Equation',
 						includeInProcess: false,
 						asset: {
-							pageNumber: index + 1,
+							pageNumber: extraction.pageNumber,
 							text: equation
 						}
 					};
