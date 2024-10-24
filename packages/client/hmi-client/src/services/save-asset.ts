@@ -7,12 +7,12 @@ import { AssetType } from '@/types/Types';
 import { logger } from '@/utils/logger';
 import router from '@/router';
 import { RouteName } from '@/router/routes';
-import type { Model, Code, InterventionPolicy, ModelConfiguration } from '@/types/Types';
+import type { Model, Dataset, Code, InterventionPolicy, ModelConfiguration } from '@/types/Types';
 import type { Workflow } from '@/types/workflow';
 import { createInterventionPolicy, updateInterventionPolicy } from './intervention-policy';
 import { createModelConfiguration, updateModelConfiguration } from './model-configurations';
 
-export type AssetToSave = Model | Workflow | ModelConfiguration | InterventionPolicy | File;
+export type AssetToSave = Model | Dataset | Workflow | ModelConfiguration | InterventionPolicy | File;
 
 // TODO: Once assets have a type property, we can remove the assetType parameter
 

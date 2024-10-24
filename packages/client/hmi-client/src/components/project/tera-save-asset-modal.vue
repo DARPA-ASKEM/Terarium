@@ -29,7 +29,7 @@ import Button from 'primevue/button';
 import TeraInputText from '@/components/widgets/tera-input-text.vue';
 import TeraModal from '@/components/widgets/tera-modal.vue';
 import { AssetType, ProgrammingLanguage } from '@/types/Types';
-import type { InterventionPolicy, Model, ModelConfiguration } from '@/types/Types';
+import type { InterventionPolicy, Model, Dataset, ModelConfiguration } from '@/types/Types';
 import type { Workflow } from '@/types/workflow';
 import { emptyWorkflow } from '@/services/workflow';
 import { setFileExtension } from '@/services/code';
@@ -115,6 +115,9 @@ function save() {
 		case AssetType.Model:
 			(newAsset as Model).header.name = newName.value;
 			break;
+		case AssetType.Dataset:
+			(newAsset as Dataset).name = newName.value;
+			break;
 		case AssetType.Workflow:
 			(newAsset as Workflow).name = newName.value;
 			break;
@@ -132,7 +135,7 @@ function save() {
 			(newAsset as ModelConfiguration).temporary = false;
 			break;
 		default:
-			break;
+			throw new Error(`Unsupported asset type ${props.assetType}`);
 	}
 
 	// Save method

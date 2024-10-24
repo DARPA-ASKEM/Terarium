@@ -35,7 +35,7 @@
 			<div class="btn-group">
 				<tera-asset-enrichment :asset-type="AssetType.Dataset" :assetId="assetId" @finished-job="fetchDataset" />
 				<Button label="Reset" severity="secondary" outlined @click="reset" />
-				<Button label="Save as..." severity="secondary" outlined @click="showSaveModal = true" disabled />
+				<Button label="Save as..." severity="secondary" outlined @click="showSaveModal = true" />
 				<Button label="Save" :disabled="isSaved" @click="updateDatasetContent" />
 			</div>
 		</template>
@@ -121,15 +121,15 @@
 		</section>
 	</tera-asset>
 	<!-- TODO: Add create dataset support to save modal -->
-	<!---<tera-save-asset-modal
-		v-if="transientDataset"
-		:initial-name="transientDataset.name"
-		:is-visible="showSaveModal"
+	<tera-save-asset-modal
 		:asset="transientDataset"
 		:asset-type="AssetType.Dataset"
+		:initial-name="transientDataset?.name"
+		:is-visible="showSaveModal"
+		:open-on-save="isWorkflow ? false : true"
 		@close-modal="showSaveModal = false"
-		@on-save="showSaveModal = false"
-	/> -->
+		@on-save="onModalSave"
+	/>
 </template>
 
 <script setup lang="ts">
@@ -161,7 +161,7 @@ import TeraAssetEnrichment from '@/components/widgets/tera-asset-enrichment.vue'
 import TeraProgressSpinner from '@/components/widgets/tera-progress-spinner.vue';
 import TeraDatasetDatatable from '@/components/dataset/tera-dataset-datatable.vue';
 import TeraColumnInfo from '@/components/dataset/tera-column-info.vue';
-// import TeraSaveAssetModal from '@/components/project/tera-save-asset-modal.vue';
+import TeraSaveAssetModal from '@/components/project/tera-save-asset-modal.vue';
 
 const props = defineProps({
 	assetId: {
@@ -175,10 +175,14 @@ const props = defineProps({
 	source: {
 		type: String as PropType<DatasetSource>,
 		default: DatasetSource.TERARIUM
+	},
+	isWorkflow: {
+		type: Boolean,
+		default: false
 	}
 });
 
-const emit = defineEmits(['close-preview']);
+const emit = defineEmits(['close-preview', 'on-save']);
 
 const dataset = ref<Dataset | null>(null);
 const transientDataset = ref<Dataset | null>(null);
@@ -230,6 +234,14 @@ const optionsMenuItems = ref([
 		}
 	}
 ]);
+
+// Save modal
+function onModalSave(event: any) {
+	showSaveModal.value = false;
+	if (props.isWorkflow) {
+		emit('on-save', event);
+	}
+}
 
 const isSaved = computed(() => isEqual(dataset.value, transientDataset.value));
 const columnInformation = computed(

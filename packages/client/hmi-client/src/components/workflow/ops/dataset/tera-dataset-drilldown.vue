@@ -5,14 +5,14 @@
 		@update-state="(state: any) => emit('update-state', state)"
 	>
 		<tera-drilldown-section>
-			<tera-dataset v-if="node.state.datasetId" :asset-id="node.state.datasetId" />
+			<tera-dataset v-if="node.state.datasetId" :asset-id="node.state.datasetId" @on-save="onSaveEvent" />
 		</tera-drilldown-section>
 	</tera-drilldown>
 </template>
 
 <script setup lang="ts">
 // Proxy to use tera-dataset via a workflow context
-
+import { cloneDeep } from 'lodash';
 import { WorkflowNode } from '@/types/workflow';
 import TeraDrilldown from '@/components/drilldown/tera-drilldown.vue';
 import type { CsvAsset, Dataset } from '@/types/Types';
@@ -21,7 +21,7 @@ import { downloadRawFile, getClimateDatasetPreview, getDataset } from '@/service
 import { enrichDataset } from '@/components/dataset/utils';
 import TeraDrilldownSection from '@/components/drilldown/tera-drilldown-section.vue';
 import TeraDataset from '@/components/dataset/tera-dataset.vue';
-import { DatasetOperationState } from './dataset-operation';
+import { DatasetOperation, DatasetOperationState } from './dataset-operation';
 
 const dataset = ref<Dataset | null>(null);
 const rawContent = ref<CsvAsset | null>(null);
@@ -30,7 +30,20 @@ const image: Ref<string | undefined> = ref(undefined);
 const props = defineProps<{
 	node: WorkflowNode<DatasetOperationState>;
 }>();
-const emit = defineEmits(['close', 'update-state']);
+const emit = defineEmits(['close', 'update-state', 'append-output']);
+
+const onSaveEvent = (event: any) => {
+	const state = cloneDeep(props.node.state);
+	state.datasetId = event.id;
+	emit('update-state', state);
+	emit('append-output', {
+		type: DatasetOperation.outputs[0].type,
+		label: event.header.name,
+		value: [event.id],
+		state,
+		isSelected: false
+	});
+};
 
 onMounted(async () => {
 	fetchingDataset.value = true;
