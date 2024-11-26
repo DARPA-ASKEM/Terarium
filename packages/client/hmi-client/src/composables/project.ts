@@ -51,6 +51,11 @@ export function useProjects() {
 	 */
 	async function getAll(): Promise<Project[]> {
 		allProjects.value = (await ProjectService.getAll()) as Project[];
+		allProjects.value.forEach((p) => {
+			p.overviewContent = '';
+			p.description = '';
+		});
+
 		areProjectsLoaded = true;
 		return allProjects.value;
 	}
