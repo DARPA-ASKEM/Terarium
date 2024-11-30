@@ -25,47 +25,59 @@
 				header="Configurations"
 				content-width="360px"
 			>
+				<template #header>
+					<div class="flex gap-2">
+						<tera-input-text v-model="filterModelConfigurationsText" placeholder="Filter" class="w-full" />
+						<Button
+							label="Extract from inputs"
+							icon="pi pi-sparkles"
+							severity="primary"
+							class="white-space-nowrap min-w-min"
+							size="small"
+							:loading="isExtracting"
+							:disabled="!props.node.inputs.slice(1, 5).some((input) => input?.value)"
+							@click="extractConfigurationsFromInputs"
+						/>
+					</div>
+					<tera-progress-spinner v-if="isFetchingConfigs && !isEmpty(modelConfigurations)" is-inline>
+						<span class="refresh-message"> Refreshing configurations... </span>
+					</tera-progress-spinner>
+				</template>
 				<template #content>
-					<main class="m-3">
-						<div class="flex flex-row gap-1">
-							<tera-input-text v-model="filterModelConfigurationsText" placeholder="Filter" class="w-full" />
-							<Button
-								label="Extract from inputs"
-								icon="pi pi-sparkles"
-								severity="primary"
-								class="white-space-nowrap min-w-min"
-								size="small"
-								:loading="isLoading"
-								:disabled="!props.node.inputs.slice(1, 5).some((input) => input?.value)"
-								@click="extractConfigurationsFromInputs"
+					<tera-progress-spinner
+						v-if="isFetchingConfigs && isEmpty(modelConfigurations)"
+						class="h-full"
+						is-centered
+						:font-size="2"
+					>
+						Loading configurations...
+					</tera-progress-spinner>
+					<!-- Show all configurations -->
+					<ul v-else-if="model?.id">
+						<li v-for="configuration in filteredModelConfigurations" :key="configuration.id">
+							<tera-model-configuration-item
+								:configuration="configuration"
+								:selected="selectedConfigId === configuration.id"
+								:empty-input-count="missingInputCount(configuration)"
+								@click="onSelectConfiguration(configuration)"
+								@delete="fetchConfigurations"
+								@download="downloadModelArchive(configuration)"
+								@use="onSelectConfiguration(configuration)"
 							/>
-						</div>
-						<!-- Show a spinner if loading -->
-						<section v-if="isLoading" class="processing-new-configuration-tile">
-							<p class="secondary-text">Processing...</p>
-						</section>
-
-						<!-- Show all configurations -->
-						<ul v-if="model?.id">
-							<li v-for="configuration in filteredModelConfigurations" :key="configuration.id">
-								<tera-model-configuration-item
-									:configuration="configuration"
-									:selected="selectedConfigId === configuration.id"
-									:empty-input-count="missingInputCount(configuration)"
-									@click="onSelectConfiguration(configuration)"
-									@delete="fetchConfigurations(model.id)"
-									@download="downloadModelArchive(configuration)"
-									@use="onSelectConfiguration(configuration)"
-								/>
-							</li>
-							<!-- Show a message if nothing found after filtering -->
-							<li v-if="filteredModelConfigurations.length === 0">No configurations found</li>
-						</ul>
-					</main>
+						</li>
+						<!-- Show a message if nothing found after filtering -->
+						<li class="ml-4 flex flex-1 items-center" v-if="filteredModelConfigurations.length === 0">
+							No configurations found
+						</li>
+					</ul>
 				</template>
 			</tera-slider-panel>
 		</template>
-		<tera-drilldown-section :is-loading="initializing" :tabName="DrilldownTabs.Wizard" class="px-3 mb-10">
+		<tera-drilldown-section
+			:is-loading="knobs.transientModelConfig.id !== selectedConfigId"
+			:tabName="DrilldownTabs.Wizard"
+			class="px-3 mb-10"
+		>
 			<template #header-controls-left>
 				<tera-toggleable-input
 					v-if="typeof knobs.transientModelConfig.name === 'string'"
@@ -225,7 +237,7 @@
 <script setup lang="ts">
 import '@/ace-config';
 import { ComponentPublicInstance, computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { cloneDeep, debounce, isEmpty, orderBy, omit } from 'lodash';
+import { cloneDeep, debounce, isEmpty, orderBy, omit, isEqual } from 'lodash';
 import Accordion from 'primevue/accordion';
 import AccordionTab from 'primevue/accordiontab';
 import Button from 'primevue/button';
@@ -258,7 +270,6 @@ import {
 	getModelInitials,
 	getMissingInputAmount,
 	getModelParameters,
-	getModelConfigurationById,
 	setInitialExpressions,
 	setInitialSource,
 	setParameterDistributions,
@@ -266,7 +277,7 @@ import {
 	updateModelConfiguration
 } from '@/services/model-configurations';
 import { useToastService } from '@/services/toast';
-import type { Initial, Model, ModelConfiguration, TaskResponse } from '@/types/Types';
+import type { Initial, Model, ModelConfiguration } from '@/types/Types'; // ., TaskResponse
 import { AssetType, ModelParameter, Observable } from '@/types/Types';
 import type { WorkflowNode } from '@/types/workflow';
 import { OperatorStatus } from '@/types/workflow';
@@ -287,6 +298,7 @@ import { useProjects } from '@/composables/project';
 import TeraPdfPanel from '@/components/widgets/tera-pdf-panel.vue';
 import Calendar from 'primevue/calendar';
 import { CalendarSettings } from '@/utils/date';
+import TeraProgressSpinner from '@/components/widgets/tera-progress-spinner.vue';
 import { DrilldownTabs } from '@/types/common';
 import { formatListWithConjunction } from '@/utils/text';
 import { DistributionType } from '@/services/distribution';
@@ -320,6 +332,7 @@ const newDescription = ref('');
 const descriptionTextareaRef = ref<ComponentPublicInstance<typeof Textarea> | null>(null);
 
 let originalConfig: ModelConfiguration | null = null;
+const modelId = props.node.inputs[0].value?.[0] as string;
 
 interface BasicKnobs {
 	transientModelConfig: ModelConfiguration;
@@ -452,6 +465,15 @@ function updateLlmQuery(query: string) {
 	llmQuery.value = query;
 }
 
+const updateThoughts = (data: any) => {
+	llmThoughts.value.push(data);
+	const llmResponse = llmThoughts.value.findLast((thought) => thought?.msg_type === 'llm_response');
+	// If the last thought is a LLM response, update the notebook response
+	if (llmResponse) {
+		notebookResponse.value = llmResponse.content.text;
+	}
+};
+
 function updateCodeState(code: string = codeText.value, hasCodeRun: boolean = true) {
 	const state = saveCodeToState(props.node, code, hasCodeRun, llmQuery.value, llmThoughts.value);
 	emit('update-state', state);
@@ -463,45 +485,32 @@ const initializeEditor = (editorInstance: any) => {
 
 const extractConfigurationsFromInputs = async () => {
 	const state = cloneDeep(props.node.state);
-	if (!model.value?.id) {
-		return;
-	}
 
-	if (documentIds.value) {
-		const promiseList = [] as Promise<TaskResponse | null>[];
-		documentIds.value.forEach((documentId) => {
-			promiseList.push(
-				configureModelFromDocument(documentId, model.value?.id as string, props.node.workflowId, props.node.id)
-			);
-		});
-		const responsesRaw = await Promise.all(promiseList);
-		responsesRaw.forEach((resp) => {
-			if (resp) {
-				state.modelConfigTaskIds.push(resp.id);
-			}
-		});
-	}
+	isExtracting.value = true;
 
-	if (datasetIds.value) {
-		const matrixStr = generateModelDatasetConfigurationContext(mmt.value, mmtParams.value);
-		const promiseList = [] as Promise<TaskResponse | null>[];
-		datasetIds.value.forEach((datasetId) => {
-			promiseList.push(
-				configureModelFromDataset(model.value?.id as string, datasetId, matrixStr, props.node.workflowId, props.node.id)
-			);
-		});
-		const responsesRaw = await Promise.all(promiseList);
-		responsesRaw.forEach((resp) => {
-			if (resp) {
-				state.modelConfigTaskIds.push(resp.id);
-			}
-		});
-	}
+	const matrixStr = generateModelDatasetConfigurationContext(mmt.value, mmtParams.value);
+
+	const promiseList = [
+		...documentIds.value.map((documentId) =>
+			configureModelFromDocument(documentId, modelId, props.node.workflowId, props.node.id)
+		),
+		...datasetIds.value.map((datasetId) =>
+			configureModelFromDataset(modelId, datasetId, matrixStr, props.node.workflowId, props.node.id)
+		)
+	];
+
+	const responsesRaw = await Promise.all(promiseList);
+	responsesRaw.forEach((resp) => {
+		if (resp) {
+			state.modelConfigTaskIds.push(resp.id);
+		}
+	});
+
 	emit('update-state', state);
 };
 
-const selectedOutputId = ref<string>('');
-const selectedConfigId = computed(() => props.node.outputs.find((o) => o.id === selectedOutputId.value)?.value?.[0]);
+const configIds = computed(() => props.node.outputs.map((output) => output.value?.[0]));
+const selectedConfigId = computed(() => props.node.outputs.find(({ id }) => id === props.node.active)?.value?.[0]);
 
 const documentIds = computed(() =>
 	props.node.inputs
@@ -518,9 +527,8 @@ const datasetIds = computed(() =>
 
 const modelConfigurations = ref<ModelConfiguration[]>([]);
 
-const initializing = ref(false);
-const isFetching = ref(false);
-const isLoading = ref(false);
+const isFetchingConfigs = ref(false);
+const isExtracting = ref(false);
 
 const amrInitials = ref<Initial[]>([]);
 const amrParameters = ref<ModelParameter[]>([]);
@@ -541,7 +549,7 @@ const missingInputCount = (modelConfiguration: ModelConfiguration) => {
 };
 
 const selectedConfigMissingInputCount = computed(() => {
-	if (initializing.value) {
+	if (!knobs.value.transientModelConfig.id) {
 		return '';
 	}
 	const amount = getMissingInputAmount(knobs.value.transientModelConfig);
@@ -552,9 +560,7 @@ const selectedConfigMissingInputCount = computed(() => {
 const model = ref<Model | null>(null);
 const mmt = ref<MiraModel>(emptyMiraModel());
 const mmtParams = ref<MiraTemplateParams>({});
-
 const configuredMmt = ref(makeConfiguredMMT(mmt.value, knobs.value.transientModelConfig));
-
 const calendarSettings = ref<CalendarSettings | null>(null);
 
 const downloadModelArchive = async (configuration: ModelConfiguration = knobs.value.transientModelConfig) => {
@@ -577,33 +583,19 @@ const createConfiguration = async () => {
 		logger.error('Failed to create model configuration');
 		return;
 	}
-
-	const state = cloneDeep(props.node.state);
 	useToastService().success('', 'Created model configuration');
-	emit('append-output', {
-		type: ModelConfigOperation.outputs[0].type,
-		label: data.name,
-		value: data.id,
-		isSelected: false,
-		state: omit(state, ['transientModelConfig'])
-	});
+	appendOutput(data);
 };
 
-const onSaveAsModelConfiguration = (data: ModelConfiguration) => {
+const onSaveAsModelConfiguration = (config: ModelConfiguration) => {
+	modelConfigurations.value.push(config); // Add to list of configurations (no need to call fetchConfigurations again)
 	useToastService().success('', 'Created model configuration');
-	const state = cloneDeep(props.node.state);
-	emit('append-output', {
-		type: ModelConfigOperation.outputs[0].type,
-		label: data.name,
-		value: data.id,
-		isSelected: false,
-		state: omit(state, ['transientModelConfig'])
-	});
+	appendOutput(config);
 	showSaveModal.value = false;
 };
 
 const onSaveConfiguration = async () => {
-	if (!model.value || isSaveDisabled.value) return;
+	if (isSaveDisabled.value || !originalConfig) return;
 	const modelConfig = cloneDeep(knobs.value.transientModelConfig);
 
 	const data = await updateModelConfiguration(modelConfig);
@@ -611,45 +603,37 @@ const onSaveConfiguration = async () => {
 		logger.error('Failed to update model configuration');
 		return;
 	}
-	initialize();
 	useProjects().refresh();
+
+	// Update the configuration in the list, no need to recall fetchConfigurations
+	const configIndex = modelConfigurations.value.findIndex((config) => config.id === data.id);
+	if (configIndex !== -1) {
+		modelConfigurations.value[configIndex] = data;
+		// Sync with original config so changes are recognized as saved in UI
+		originalConfig.name = data.name;
+		originalConfig.description = data.description;
+	}
+
 	logger.success('Saved model configuration');
 };
 
-const fetchConfigurations = async (modelId: string) => {
-	isFetching.value = true;
+const fetchConfigurations = async () => {
+	isFetchingConfigs.value = true;
 	modelConfigurations.value = await getModelConfigurationsForModel(modelId);
-	isFetching.value = false;
+	isFetchingConfigs.value = false;
 };
 
-// Fill the form with the config data
-const initialize = async (overwriteWithState: boolean = false) => {
-	initializing.value = true;
+async function loadOutput(overwriteWithState = false) {
 	const state = props.node.state;
-	const modelId = props.node.inputs[0].value?.[0];
-	if (!modelId) return;
-	fetchConfigurations(modelId);
+	originalConfig = modelConfigurations.value.find(({ id }) => id === selectedConfigId.value) ?? null;
 
-	model.value = await getModel(modelId);
-	if (model.value) {
-		calendarSettings.value = getCalendarSettingsFromModel(model.value);
-		const response = await getMMT(model.value);
-		if (response) {
-			mmt.value = response.mmt;
-			mmtParams.value = response.template_params;
-		}
-	}
-
+	// Apply the first configuration if one hasn't been applied yet
 	if (!state.transientModelConfig.id) {
-		// Apply a configuration if one hasn't been applied yet
 		applyConfigValues(modelConfigurations.value[0]);
-	} else {
-		originalConfig = await getModelConfigurationById(selectedConfigId.value);
-		if (!overwriteWithState) {
-			knobs.value.transientModelConfig = cloneDeep(originalConfig);
-		} else {
-			knobs.value.transientModelConfig = cloneDeep(state.transientModelConfig);
-		}
+	} else if (overwriteWithState) {
+		knobs.value.transientModelConfig = cloneDeep(state.transientModelConfig);
+	} else if (originalConfig) {
+		knobs.value.transientModelConfig = cloneDeep(originalConfig);
 	}
 
 	if (model.value) {
@@ -676,7 +660,6 @@ const initialize = async (overwriteWithState: boolean = false) => {
 
 	configuredMmt.value = makeConfiguredMMT(mmt.value, knobs.value.transientModelConfig);
 
-	initializing.value = false;
 	// Create a new session and context based on model
 	try {
 		const jupyterContext = buildJupyterContext();
@@ -690,9 +673,10 @@ const initialize = async (overwriteWithState: boolean = false) => {
 	} catch (error) {
 		logger.error(`Error initializing Jupyter session: ${error}`);
 	}
-};
+}
 
 const onSelectConfiguration = async (config: ModelConfiguration) => {
+	if (config.id === selectedConfigId.value) return;
 	let tabIndex = 0;
 	if (pdfPanelRef.value && config.extractionDocumentId) {
 		tabIndex = await pdfPanelRef.value.selectPdf(config.extractionDocumentId);
@@ -727,30 +711,33 @@ const onSelectConfiguration = async (config: ModelConfiguration) => {
 	});
 };
 
+function appendOutput(config: ModelConfiguration) {
+	const state = cloneDeep(props.node.state);
+	emit('append-output', {
+		type: ModelConfigOperation.outputs[0].type,
+		label: config.name,
+		value: config.id,
+		isSelected: false,
+		state: omit(state, ['transientModelConfig'])
+	});
+}
+
 const applyConfigValues = (config: ModelConfiguration) => {
-	// Update output port:
 	if (!config.id) {
 		logger.error('Model configuration not found');
 		return;
 	}
-	const listOfConfigIds: string[] = props.node.outputs.map((output) => output.value?.[0]);
-	// Check if this output already exists
-	if (listOfConfigIds.includes(config.id)) {
-		// Select the existing output
-		const output = props.node.outputs.find((ele) => ele.value?.[0] === config.id);
-		emit('select-output', output?.id);
+	// If this output already exists select it
+	if (configIds.value.includes(config.id)) {
+		const outputId = props.node.outputs.find((ele) => ele.value?.[0] === config.id)?.id;
+		if (!outputId) {
+			logger.error('Output not found');
+			return;
+		}
+		emit('select-output', outputId);
 	}
-	// If the output does not already exist
-	else {
-		const state = cloneDeep(props.node.state);
-		emit('append-output', {
-			type: ModelConfigOperation.outputs[0].type,
-			label: config.name,
-			value: config.id,
-			isSelected: false,
-			state: omit(state, ['transientModelConfig'])
-		});
-	}
+	// If the output does not already exist append it
+	else appendOutput(config);
 };
 
 const onEditDescription = async () => {
@@ -777,29 +764,6 @@ const resetConfiguration = () => {
 	});
 };
 
-const updateThoughts = (data: any) => {
-	llmThoughts.value.push(data);
-	const llmResponse = llmThoughts.value.findLast((thought) => thought?.msg_type === 'llm_response');
-	// If the last thought is a LLM response, update the notebook response
-	if (llmResponse) {
-		notebookResponse.value = llmResponse.content.text;
-	}
-};
-
-watch(
-	() => props.node.state.modelConfigTaskIds,
-	(newValue, oldValue) => {
-		if (newValue.length > 0) {
-			isLoading.value = true;
-		} else if (newValue.length !== oldValue.length) {
-			isLoading.value = false;
-			const modelId = props.node.inputs[0].value?.[0];
-			if (!modelId) return;
-			fetchConfigurations(modelId);
-		}
-	}
-);
-
 const debounceUpdateState = debounce(() => {
 	console.log('debounced update');
 	const state = cloneDeep(props.node.state);
@@ -808,6 +772,7 @@ const debounceUpdateState = debounce(() => {
 
 	emit('update-state', state);
 }, 100);
+
 watch(
 	() => knobs.value,
 	async () => {
@@ -816,12 +781,33 @@ watch(
 	{ deep: true }
 );
 
-onMounted(() => {
-	// setting as true will overwrite the model config with the current state value
-	if (props.node.active) {
-		selectedOutputId.value = props.node.active;
-		initialize(true);
+watch(
+	() => props.node.state.modelConfigTaskIds,
+	async (oldValue, newValue) => {
+		if (!isEqual(oldValue, newValue)) {
+			console.log('oldValue', oldValue);
+			console.log('newValue', newValue);
+			console.log('modelConfigTaskIds changed');
+			await fetchConfigurations();
+			isExtracting.value = false;
+		}
 	}
+);
+
+onMounted(async () => {
+	model.value = await getModel(modelId);
+	if (model.value) {
+		calendarSettings.value = getCalendarSettingsFromModel(model.value);
+		const response = await getMMT(model.value);
+		if (response) {
+			mmt.value = response.mmt;
+			mmtParams.value = response.template_params;
+		}
+	}
+
+	// Wait for the configurations to load before loading any output
+	await fetchConfigurations();
+	loadOutput(true);
 
 	if (documentIds.value.length) {
 		isFetchingPDF.value = true;
@@ -849,12 +835,7 @@ onMounted(() => {
 
 watch(
 	() => props.node.active,
-	() => {
-		if (props.node.active) {
-			selectedOutputId.value = props.node.active;
-			initialize();
-		}
-	}
+	() => loadOutput()
 );
 
 onUnmounted(() => {
@@ -863,16 +844,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.processing-new-configuration-tile {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	padding: var(--gap-4);
-	background-color: var(--surface-0);
-	margin-top: var(--gap-3);
-	border-left: 4px solid var(--surface-300);
-}
-
 /* When accordions are closed, don't show their filter or edit buttons */
 :deep(.p-accordion-tab:not(.p-accordion-tab-active)) .p-accordion-header .p-accordion-header-link .tera-input,
 :deep(.p-accordion-tab:not(.p-accordion-tab-active)) .p-accordion-header .p-accordion-header-link button {
@@ -943,7 +914,6 @@ onUnmounted(() => {
 .input-config {
 	ul {
 		list-style: none;
-		padding-top: var(--gap-4);
 	}
 
 	li {
@@ -991,8 +961,8 @@ button.start-edit {
 	}
 }
 
-.secondary-text {
-	color: var(--text-color-subdued);
+.refresh-message {
+	color: var(--primary-color);
 }
 
 .executed-code {

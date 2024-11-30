@@ -36,7 +36,7 @@ export const createModelConfiguration = async (modelConfiguration: ModelConfigur
 	return response?.data ?? null;
 };
 
-export const updateModelConfiguration = async (modelConfiguration: ModelConfiguration) => {
+export const updateModelConfiguration = async (modelConfiguration: ModelConfiguration): Promise<ModelConfiguration> => {
 	const response = await API.put(`/model-configurations/${modelConfiguration.id}`, modelConfiguration);
 	return response?.data ?? null;
 };

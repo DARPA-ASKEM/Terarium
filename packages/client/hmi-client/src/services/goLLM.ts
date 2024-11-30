@@ -65,6 +65,7 @@ export async function configureModelFromDocument(
 			'node-id': nodeId
 		}
 	});
+	console.log(data);
 	return data;
 }
 

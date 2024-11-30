@@ -130,21 +130,21 @@
 			header="Raw request"
 			content-width="500px"
 		>
+			<template #header-buttons>
+				<Button
+					outlined
+					severity="secondary"
+					label="Sync with Wizard"
+					icon="pi pi-refresh"
+					:disabled="isEqual(request, JSON.parse(rawRequest))"
+					@click="syncNotebookWithWizard"
+				/>
+				<Button :loading="showSpinner" label="Run" icon="pi pi-play" @click="run" />
+			</template>
 			<template #header>
-				<div class="ml-auto flex gap-2">
-					<Button
-						outlined
-						severity="secondary"
-						label="Sync with Wizard"
-						icon="pi pi-refresh"
-						:disabled="isEqual(request, JSON.parse(rawRequest))"
-						@click="syncNotebookWithWizard"
-					/>
-					<Button :loading="showSpinner" label="Run" icon="pi pi-play" @click="run" />
-				</div>
+				<span class="notebook-message">Edits here will not be reflected in the wizard.</span>
 			</template>
 			<template #content>
-				<span class="notebook-message">Edits here will not be reflected in the wizard.</span>
 				<v-ace-editor
 					v-model:value="rawRequest"
 					lang="json"
@@ -1121,7 +1121,6 @@ ul {
 }
 
 .notebook-message {
-	padding-left: var(--gap-4);
 	font-size: var(--font-caption);
 }
 

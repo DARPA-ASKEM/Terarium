@@ -9,15 +9,21 @@
 		<template v-slot:content>
 			<aside @scroll="onScroll">
 				<header :class="{ shadow: isScrolled }">
-					<Button
-						:icon="`pi ${directionMap[arrowDirection].iconOpen}`"
-						@click="emit('update:isOpen', false)"
-						text
-						rounded
-						size="large"
-					/>
+					<div class="title">
+						<h4>{{ header }}</h4>
+						<div class="flex gap-2">
+							<!--Add extra buttons in this slot if desired-->
+							<slot name="header-buttons" />
+							<Button
+								:icon="`pi ${directionMap[arrowDirection].iconOpen}`"
+								@click="emit('update:isOpen', false)"
+								text
+								rounded
+								size="large"
+							/>
+						</div>
+					</div>
 					<slot name="header" />
-					<h4>{{ header }}</h4>
 				</header>
 				<div class="content-wrapper">
 					<slot name="content" />
@@ -119,16 +125,21 @@ header {
 	position: sticky;
 	top: 0;
 	z-index: 3;
-	display: flex;
-	align-items: center;
-	flex-direction: row-reverse;
-	justify-content: space-between;
 	padding: var(--gap-2);
 	padding-left: var(--gap-4);
-	gap: var(--gap-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--gap-1);
 	&.shadow {
 		box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.1);
 	}
+}
+
+header > .title,
+header.tab {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 }
 
 header:not(.tab) {
