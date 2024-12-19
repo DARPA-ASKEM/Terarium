@@ -208,27 +208,7 @@
 					<Button class="mr-3" label="Save for re-use" severity="secondary" outlined @click="showSaveDataset = true" />
 				</template>
 				<tera-notebook-error v-if="!_.isEmpty(node.state?.errorMessage?.traceback)" v-bind="node.state.errorMessage" />
-				<section ref="outputPanel">
-					<tera-simulate-chart
-						v-for="(cfg, index) of node.state.chartConfigs"
-						:key="index"
-						:run-results="runResults"
-						:chartConfig="{ selectedRun: selectedRunId, selectedVariable: cfg }"
-						has-mean-line
-						:size="chartSize"
-						@configuration-change="chartProxy.configurationChange(index, $event)"
-						@remove="chartProxy.removeChart(index)"
-						show-remove-button
-					/>
-					<Button
-						class="add-chart"
-						text
-						:outlined="true"
-						@click="chartProxy.addChart()"
-						label="Add chart"
-						icon="pi pi-plus"
-					/>
-				</section>
+				<section ref="outputPanel"></section>
 			</tera-drilldown-section>
 		</template>
 
@@ -267,14 +247,13 @@ import Dropdown from 'primevue/dropdown';
 import TeraDrilldownSection from '@/components/drilldown/tera-drilldown-section.vue';
 import TeraDrilldown from '@/components/drilldown/tera-drilldown.vue';
 import TeraPyciemssCancelButton from '@/components/pyciemss/tera-pyciemss-cancel-button.vue';
-import TeraSimulateChart from '@/components/workflow/tera-simulate-chart.vue';
 import {
 	getRunResultCiemss,
 	makeEnsembleCiemssSimulation,
 	CiemssMethodOptions
 } from '@/services/models/simulation-service';
 import { getModelConfigurationById, getObservables, getInitials } from '@/services/model-configurations';
-import { chartActionsProxy, drilldownChartSize, nodeMetadata } from '@/components/workflow/util';
+import { nodeMetadata } from '@/components/workflow/util';
 import type { WorkflowNode } from '@/types/workflow';
 import { AssetType, type EnsembleSimulationCiemssRequest } from '@/types/Types';
 import { RunResults } from '@/types/SimulateConfig';
@@ -358,10 +337,6 @@ const selectedOutputId = ref<string>();
 const selectedRunId = ref<string>('');
 
 const outputPanel = ref(null);
-const chartSize = computed(() => drilldownChartSize(outputPanel.value));
-const chartProxy = chartActionsProxy(props.node, (state: SimulateEnsembleCiemssOperationState) => {
-	emit('update-state', state);
-});
 
 const onSelection = (id: string) => {
 	emit('select-output', id);
