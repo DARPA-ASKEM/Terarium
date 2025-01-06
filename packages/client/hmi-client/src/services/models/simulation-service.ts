@@ -43,7 +43,7 @@ export async function cancelCiemssJob(runId: String) {
 
 export async function makeForecastJobCiemss(simulationParam: SimulationRequest, metadata?: any) {
 	try {
-		const resp = await API.post('simulation-request/ciemss/forecast', {
+		const resp = await API.post('simulation-request/ciemss/forecast-op', {
 			payload: simulationParam,
 			metadata
 		});

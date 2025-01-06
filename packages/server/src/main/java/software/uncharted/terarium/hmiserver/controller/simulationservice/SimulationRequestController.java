@@ -33,6 +33,7 @@ import software.uncharted.terarium.hmiserver.models.simulationservice.EnsembleSi
 import software.uncharted.terarium.hmiserver.models.simulationservice.JobResponse;
 import software.uncharted.terarium.hmiserver.models.simulationservice.OptimizeRequestCiemss;
 import software.uncharted.terarium.hmiserver.models.simulationservice.SimulationRequest;
+import software.uncharted.terarium.hmiserver.operations.SimulateRunner;
 import software.uncharted.terarium.hmiserver.proxies.simulationservice.SimulationCiemssServiceProxy;
 import software.uncharted.terarium.hmiserver.security.Roles;
 import software.uncharted.terarium.hmiserver.service.ClientEventService;
@@ -41,6 +42,7 @@ import software.uncharted.terarium.hmiserver.service.data.ModelConfigurationServ
 import software.uncharted.terarium.hmiserver.service.data.ProjectAssetService;
 import software.uncharted.terarium.hmiserver.service.data.ProjectService;
 import software.uncharted.terarium.hmiserver.service.data.SimulationService;
+import software.uncharted.terarium.hmiserver.service.data.WorkflowService;
 import software.uncharted.terarium.hmiserver.service.notification.NotificationService;
 import software.uncharted.terarium.hmiserver.service.notification.SimulationRequestStatusNotifier;
 import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
@@ -60,6 +62,7 @@ public class SimulationRequestController implements SnakeCaseController {
 	private final ProjectService projectService;
 	private final ProjectAssetService projectAssetService;
 	private final SimulationService simulationService;
+	private final WorkflowService workflowService;
 
 	private final ModelConfigurationService modelConfigService;
 
@@ -98,6 +101,52 @@ public class SimulationRequestController implements SnakeCaseController {
 		}
 	}
 
+	@PostMapping("ciemss/forecast-op")
+	@Secured(Roles.USER)
+	public ResponseEntity<Simulation> makeForecastRunCiemssOp(
+		@RequestBody final SimulationRequestBody<SimulationRequest> request,
+		@RequestParam(name = "project-id", required = false) final UUID projectId
+	) {
+		final Schema.Permission permission = projectService.checkPermissionCanWrite(
+			currentUserService.get().getId(),
+			projectId
+		);
+
+		final Optional<ModelConfiguration> modelConfiguration = modelConfigService.getAsset(
+			request.payload.getModelConfigId(),
+			permission
+		);
+		if (modelConfiguration.isEmpty()) {
+			return ResponseEntity.notFound().build();
+		}
+
+		request.payload.setEngine(SimulationEngine.CIEMSS.toString());
+		final JobResponse res = simulationCiemssServiceProxy
+			.makeForecastRun(convertObjectToSnakeCaseJsonNode(request.payload))
+			.getBody();
+
+		final Optional<Simulation> sim = simulationService.getAsset(UUID.fromString(res.getSimulationId()), permission);
+		final Optional<Project> project = projectService.getProject(projectId);
+
+		final SimulateRunner runner = new SimulateRunner(this.workflowService, this.simulationService, permission);
+		runner
+			.setProjectId(projectId)
+			.setWorkflowId(UUID.fromString(request.metadata.get("workflowId").asText()))
+			.setNodeId(UUID.fromString(request.metadata.get("nodeId").asText()))
+			.setSimulationId(sim.get().getId())
+			.setMetadata(request.metadata)
+			.start();
+
+		try {
+			projectAssetService.createProjectAsset(project.get(), AssetType.SIMULATION, sim.get(), permission);
+			return ResponseEntity.ok(sim.get());
+		} catch (final Exception e) {
+			final String error = "Failed to create simulation";
+			log.error(error, e);
+			throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, error);
+		}
+	}
+
 	@PostMapping("ciemss/forecast")
 	@Secured(Roles.USER)
 	public ResponseEntity<Simulation> makeForecastRunCiemss(
@@ -124,6 +173,15 @@ public class SimulationRequestController implements SnakeCaseController {
 
 		final Optional<Simulation> sim = simulationService.getAsset(UUID.fromString(res.getSimulationId()), permission);
 		final Optional<Project> project = projectService.getProject(projectId);
+
+		final SimulateRunner runner = new SimulateRunner(this.workflowService, this.simulationService, permission);
+		runner
+			.setProjectId(projectId)
+			.setWorkflowId(null)
+			.setNodeId(null)
+			.setSimulationId(sim.get().getId())
+			.setMetadata(request.metadata)
+			.start();
 
 		new SimulationRequestStatusNotifier(
 			notificationService,
