@@ -104,7 +104,6 @@ async function getBulkDatasets(datasetIDs: string[]) {
  */
 async function downloadRawFile(datasetId: string, filename: string, limit: number = 100): Promise<CsvAsset | null> {
 	const URL = `/datasets/${datasetId}/download-csv?filename=${filename}&limit=${limit}`;
-	console.log('URL', URL);
 	const response = await API.get(URL).catch((error) => {
 		logger.error(`Error: data-service was not able to retrieve the dataset's rawfile ${error}`);
 	});

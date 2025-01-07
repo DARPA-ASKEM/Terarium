@@ -118,7 +118,7 @@
 								: undefined
 						"
 						:active-settings="activeChartSettings"
-						:generate-annotation="generateAnnotation"
+						:generate-annotation="(settings, query) => generateAnnotation(settings, query, selectedPlotType)"
 						@delete-annotation="deleteAnnotation"
 						@update-settings="updateActiveChartSettings"
 						@close="setActiveChartSettings(null)"

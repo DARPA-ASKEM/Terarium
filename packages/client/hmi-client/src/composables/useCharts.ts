@@ -230,9 +230,35 @@ export function useCharts(
 	};
 
 	// Generate annotations for a chart
-	const generateAnnotation = async (setting: ChartSetting, query: string) => {
+	const generateAnnotation = async (
+		setting: ChartSetting,
+		query: string,
+		compareDatasetsPlotType: PlotValue | null = null
+	) => {
 		if (!chartData.value) return null;
-		const { statLayerVariables, options } = createForecastChartOptions(setting);
+
+		let statLayerVariables: string[] = [];
+		let options: ForecastChartOptions | null = null;
+
+		if (compareDatasetsPlotType) {
+			statLayerVariables = setting.selectedVariables;
+			options = {
+				title: setting.selectedVariables[0],
+				legend: true,
+				width: chartSize.value.width,
+				height: chartSize.value.height,
+				xAxisTitle: getUnit('_time') || 'Time',
+				yAxisTitle: capitalize(compareDatasetsPlotType),
+				scale: setting.scale
+			};
+		} else {
+			const forecastChartOptions = createForecastChartOptions(setting);
+			statLayerVariables = forecastChartOptions.statLayerVariables;
+			options = forecastChartOptions.options;
+		}
+
+		if (!options) return null;
+
 		if (setting.type === ChartSettingType.VARIABLE_ENSEMBLE) {
 			options.translationMap = addModelConfigNameToTranslationMap(
 				options.translationMap ?? {},
