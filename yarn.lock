@@ -8720,7 +8720,7 @@ __metadata:
     pixi.js: "npm:7.0.5"
     primeflex: "npm:3.3.1"
     primeicons: "npm:7.0.0"
-    primevue: "npm:3.53.0"
+    primevue: "npm:3.53.1"
     pyodide: "npm:0.25.1"
     sass: "npm:1.56.1"
     typescript: "npm:5.6.3"
@@ -12268,12 +12268,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"primevue@npm:3.53.0":
-  version: 3.53.0
-  resolution: "primevue@npm:3.53.0"
+"primevue@npm:3.53.1":
+  version: 3.53.1
+  resolution: "primevue@npm:3.53.1"
   peerDependencies:
     vue: ^3.0.0
-  checksum: 10/a99e556ac7f2302286fc28d3c9b76f84dc7c69b70516a3e15adf47a2a63ead4dd9a0c893df4c9ab29a1502334e68784c467af0799082f0f8ba97bff8723060d8
+  checksum: 10/a0e9a07a976f41f9859049ef44b96f3a03185f5af30a05bf8afec65fd73a5a72b5896c4e0803a2119652c37357b7b9166b5f1f4d0913e4f85f5d931f63573cf6
   languageName: node
   linkType: hard
 
