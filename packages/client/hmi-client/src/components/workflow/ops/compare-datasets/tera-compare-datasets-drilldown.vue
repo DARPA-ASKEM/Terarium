@@ -43,7 +43,7 @@
 								option-value="id"
 								:loading="isFetchingDatasets"
 								placeholder="Optional"
-								@change="generateChartData"
+								@change="generateImpactCharts"
 							/>
 							<label>Comparison tables</label>
 							<tera-checkbox v-model="isATESelected" label="Average treatment effect (ATE)" />
@@ -103,8 +103,18 @@
 						<AccordionTab header="Comparison table"> </AccordionTab>
 					</template>
 					<template v-else>
-						<AccordionTab header="Ranking results"> </AccordionTab>
-						<AccordionTab header="Ranking criteria"> </AccordionTab>
+						<AccordionTab header="Ranking results">
+							<vega-chart :visualization-spec="rankingResultsChart" :are-embed-actions-visible="false" expandable />
+						</AccordionTab>
+						<AccordionTab header="Ranking criteria">
+							<vega-chart
+								v-for="(rankingCriteriaChart, index) in rankingCriteriaCharts"
+								:visualization-spec="rankingCriteriaChart"
+								:are-embed-actions-visible="false"
+								:key="index"
+								expandable
+							/>
+						</AccordionTab>
 					</template>
 				</Accordion>
 			</div>
@@ -119,7 +129,7 @@
 				header="Output settings"
 				content-width="360px"
 			>
-				<template #overlay>
+				<template #overlay v-if="knobs.selectedCompareOption === CompareValue.IMPACT">
 					<tera-chart-settings-panel
 						:annotations="
 							[ChartSettingType.VARIABLE, ChartSettingType.VARIABLE_COMPARISON].includes(
@@ -135,7 +145,7 @@
 						@close="setActiveChartSettings(null)"
 					/>
 				</template>
-				<template #content>
+				<template #content v-if="knobs.selectedCompareOption === CompareValue.IMPACT">
 					<div class="output-settings-panel">
 						<tera-chart-control
 							class="w-full"
@@ -156,7 +166,7 @@
 									v-model="knobs.selectedPlotType"
 									:value="option.value"
 									name="plotValues"
-									@change="generateChartData"
+									@change="generateImpactCharts"
 								/>
 								<label class="pl-2 py-1" :for="option.value">{{ option.label }}</label>
 							</div>
@@ -195,6 +205,7 @@ import RadioButton from 'primevue/radiobutton';
 import { isEmpty, cloneDeep } from 'lodash';
 import VegaChart from '@/components/widgets/VegaChart.vue';
 import { deleteAnnotation } from '@/services/chart-settings';
+import { createRankingInterventionsChart } from '@/services/charts';
 import TeraChartSettingsItem from '@/components/widgets/tera-chart-settings-item.vue';
 import TeraChartControl from '@/components/workflow/tera-chart-control.vue';
 import TeraChartSettingsPanel from '@/components/widgets/tera-chart-settings-panel.vue';
@@ -207,7 +218,9 @@ import {
 	CompareDatasetsState,
 	CompareValue,
 	CriteriaOfInterestCard,
-	PlotValue
+	PlotValue,
+	RankOption,
+	TimepointOption
 } from './compare-datasets-operation';
 
 const props = defineProps<{
@@ -224,6 +237,7 @@ const compareOptions: { label: string; value: CompareValue }[] = [
 const datasets = ref<Dataset[]>([]);
 const modelConfigurations = ref<ModelConfiguration[]>([]);
 const interventionPolicies = ref<InterventionPolicy[]>([]);
+const modelConfigIdToInterventionPolicyIdMap = ref<Record<string, string[]>>({});
 
 const commonHeaderNames = ref<string[]>([]);
 const timepointHeaderName = ref<string | null>(null);
@@ -243,7 +257,7 @@ const areSimulationsFromSameModel = ref(true);
 const isATESelected = ref(false);
 
 const onRun = () => {
-	console.log('run');
+	generateRankingCharts();
 };
 
 interface BasicKnobs {
@@ -286,6 +300,8 @@ const outputPanel = ref(null);
 const chartSize = useDrilldownChartSize(outputPanel);
 
 const chartData = ref<ChartData | null>(null);
+const rankingResultsChart = ref<any>(null);
+const rankingCriteriaCharts = ref<any>([]);
 
 const { generateAnnotation, getChartAnnotationsByChartId, useCompareDatasetCharts } = useCharts(
 	props.node.id,
@@ -297,17 +313,15 @@ const { generateAnnotation, getChartAnnotationsByChartId, useCompareDatasetChart
 	null
 );
 const selectedPlotType = computed(() => knobs.value.selectedPlotType);
-const baselineName = computed(
-	() => datasets.value.find((dataset) => dataset.id === knobs.value.selectedDataset)?.name ?? null
-);
+const baselineName = computed(() => {
+	const name = datasets.value.find((dataset) => dataset.id === knobs.value.selectedDataset)?.name;
+	return name ? removeSuffixFromInputName(name) : null;
+});
 const variableCharts = useCompareDatasetCharts(selectedVariableSettings, selectedPlotType, baselineName);
 
 const initialize = async () => {
 	const state = cloneDeep(props.node.state);
 	knobs.value = Object.assign(knobs.value, state);
-
-	const interventionPolicyIds: string[] = [];
-	const modelConfigurationIds: string[] = [];
 
 	const inputs = props.node.inputs;
 	const datasetInputs = inputs.filter(
@@ -318,31 +332,43 @@ const initialize = async () => {
 	isFetchingDatasets.value = true;
 	await Promise.all(datasetPromises).then((ds) => {
 		ds.forEach((dataset) => {
+			// Add dataset
 			if (!dataset) return;
 			datasets.value.push(dataset);
-			const modelConfigurationId = dataset.metadata?.simulationAttributes?.modelConfigurationId;
-			const interventionPolicyId = dataset.metadata?.simulationAttributes?.interventionPolicyId;
-			if (modelConfigurationId) modelConfigurationIds.push(modelConfigurationId);
-			if (interventionPolicyId) interventionPolicyIds.push(interventionPolicyId);
+
+			// Collect model configuration id and intervention policy id
+			const modelConfigurationId: string | undefined = dataset.metadata?.simulationAttributes?.modelConfigurationId;
+			const interventionPolicyId: string | undefined = dataset.metadata?.simulationAttributes?.interventionPolicyId;
+
+			if (!modelConfigurationId) return;
+			if (!modelConfigIdToInterventionPolicyIdMap.value[modelConfigurationId]) {
+				modelConfigIdToInterventionPolicyIdMap.value[modelConfigurationId] = [];
+			}
+			if (!interventionPolicyId) return;
+			modelConfigIdToInterventionPolicyIdMap.value[modelConfigurationId].push(interventionPolicyId);
 		});
 	});
 	isFetchingDatasets.value = false;
 
 	if (!knobs.value.selectedDataset) knobs.value.selectedDataset = datasets.value[0]?.id ?? null;
 
-	generateChartData();
+	await generateImpactCharts();
 
+	const modelConfigurationIds = Object.keys(modelConfigIdToInterventionPolicyIdMap.value);
 	if (isEmpty(modelConfigurationIds)) return;
 	const modelConfigurationPromises = modelConfigurationIds.map((id) => getModelConfigurationById(id));
 	await Promise.all(modelConfigurationPromises).then((configs) => {
 		modelConfigurations.value = configs.filter((config) => config !== null);
 	});
 
+	const interventionPolicyIds = Object.values(modelConfigIdToInterventionPolicyIdMap.value).flat();
 	if (isEmpty(interventionPolicyIds)) return;
 	const interventionPolicyPromises = interventionPolicyIds.map((id) => getInterventionPolicyById(id));
 	await Promise.all(interventionPolicyPromises).then((policies) => {
 		interventionPolicies.value = policies.filter((policy) => policy !== null);
 	});
+
+	generateRankingCharts();
 };
 
 // Following two funcs are util like
@@ -370,7 +396,78 @@ function findDuplicates(strings: string[]): string[] {
 	return duplicates;
 }
 
-async function generateChartData() {
+function generateRankingCharts() {
+	// Reset charts
+	rankingCriteriaCharts.value = [];
+	rankingResultsChart.value = null;
+
+	// Might be uneccessary
+	const commonInterventionPolicyIds = props.node.state.criteriaOfInterestCards
+		.map(({ selectedConfigurationId }) => {
+			if (!selectedConfigurationId) return [];
+			return modelConfigIdToInterventionPolicyIdMap.value?.[selectedConfigurationId] ?? [];
+		})
+		.flat();
+
+	const allRankedCriteriaValues: { score: number; name: string }[][] = [];
+
+	props.node.state.criteriaOfInterestCards.forEach((card) => {
+		if (!card.selectedConfigurationId || !card.selectedVariable || !chartData.value) return;
+
+		const variableData = chartData.value.resultSummary.filter((d) => d.headerName === card.selectedVariable);
+		if (isEmpty(variableData)) return;
+
+		const pointOfComparison =
+			card.timepoint === TimepointOption.FIRST ? variableData[0] : variableData[variableData.length - 1];
+
+		const rankingCriteriaValues: { score: number; name: string }[] = [];
+		interventionPolicies.value.forEach((policy) => {
+			// Skip this intervention policy if a configuration is not using it
+			if (!policy.id || !policy.name || !commonInterventionPolicyIds.includes(policy.id)) return;
+
+			rankingCriteriaValues.push({
+				score: pointOfComparison[policy.name] ?? 0,
+				name: policy.name ?? ''
+			});
+		});
+
+		const sortedRankingCriteriaValues =
+			card.rank === RankOption.MAXIMUM
+				? rankingCriteriaValues.sort((a, b) => b.score - a.score)
+				: rankingCriteriaValues.sort((a, b) => a.score - b.score);
+
+		sortedRankingCriteriaValues.forEach((value, index) => {
+			value.score = index + 1;
+		});
+		rankingCriteriaCharts.value.push(createRankingInterventionsChart(sortedRankingCriteriaValues, card.name));
+		allRankedCriteriaValues.push(sortedRankingCriteriaValues);
+	});
+
+	// Sum up the scores of the same intervention policy
+	const scoreMap: Record<string, number> = {};
+	allRankedCriteriaValues.flat().forEach(({ score, name }) => {
+		if (scoreMap[name]) {
+			scoreMap[name] += score;
+		} else {
+			scoreMap[name] = score;
+		}
+	});
+
+	const rankingResultsValues = Object.keys(scoreMap)
+		.map((name) => ({
+			name,
+			score: scoreMap[name]
+		}))
+		.sort((a, b) => a.score - b.score);
+
+	rankingResultsChart.value = createRankingInterventionsChart(rankingResultsValues, '');
+}
+
+function removeSuffixFromInputName(name: string): string {
+	return name.replace(/ - \d+$/, '');
+}
+
+async function generateImpactCharts() {
 	if (datasets.value.length <= 1) return;
 
 	const rawContents = await Promise.all(
@@ -424,7 +521,8 @@ async function generateChartData() {
 			const timepoints = csv[timepointIndex];
 			const columnToSubtract = csv[headerIndex];
 
-			const name = `${datasets.value[datasetIndex].name}`;
+			// Removing the number suffix from the input name will help us match it with the intervention names in generateRankingCharts
+			const name = removeSuffixFromInputName(`${datasets.value[datasetIndex].name}`);
 			variableNames.push(name);
 
 			referenceColumn.forEach((referencePoint: number, index: number) => {

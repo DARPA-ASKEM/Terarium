@@ -1778,3 +1778,69 @@ export function createFunmanParameterCharts(
 		}
 	};
 }
+
+export function createRankingInterventionsChart(values: any[], title: string) {
+	const globalFont = 'Figtree';
+
+	return {
+		$schema: VEGALITE_SCHEMA,
+		config: {
+			font: globalFont,
+			bar: {
+				discreteBandSize: 20 // Fixed bar width
+			},
+			view: {
+				continuousWidth: 600 // Total chart width stays fixed
+			},
+			axis: {
+				labelAngle: 0
+			}
+		},
+		title: {
+			text: title,
+			anchor: 'start',
+			frame: 'group',
+			offset: 10,
+			fontSize: 14
+		},
+		width: 600,
+		data: {
+			values
+		},
+		encoding: {
+			x: {
+				field: 'index',
+				type: 'nominal',
+				sort: null,
+				title: 'Rank'
+			},
+			y: {
+				field: 'score',
+				type: 'quantitative',
+				title: 'Score'
+			}
+		},
+		transform: [{ window: [{ op: 'row_number', as: 'index' }] }],
+		spacing: 20, // Adds space between bars
+		layer: [
+			{
+				mark: 'bar'
+			},
+			{
+				mark: {
+					type: 'text',
+					align: 'right',
+					baseline: 'bottom',
+					dy: -15,
+					angle: 270
+					// FIXME:
+					// I don't know how to fix the text to the bottom of the bar, its origin seems to be around the top
+					// and giving it the proper dx shift varies depending on the bar size
+				},
+				encoding: {
+					text: { field: 'name', type: 'nominal' }
+				}
+			}
+		]
+	};
+}

@@ -9,7 +9,7 @@
 			/>
 			<Button class="ml-auto" text icon="pi pi-trash" @click="emit('delete')" />
 		</header>
-		<div>
+		<p>
 			For configuration
 			<Dropdown
 				placeholder="Select..."
@@ -43,7 +43,10 @@
 				@update:model-value="emit('update', { timepoint: $event })"
 			/>
 			timepoint.
-		</div>
+		</p>
+		<footer v-if="!card.selectedConfigurationId || !card.selectedVariable">
+			Please select a configuration and a variable.
+		</footer>
 	</div>
 </template>
 
@@ -86,5 +89,10 @@ defineProps<{
 .p-dropdown {
 	height: 2rem;
 	margin-bottom: var(--gap-1);
+}
+
+footer {
+	font-size: var(--font-caption);
+	color: var(--text-color-secondary);
 }
 </style>
