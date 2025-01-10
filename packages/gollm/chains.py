@@ -110,6 +110,21 @@ def interventions_from_document_chain(llm: LlmToolsInterface, research_paper: st
     return output
 
 
+def interventions_from_dataset_chain(llm: LlmToolsInterface, dataset: List[str], amr: str) -> dict:
+    print("Uploading and validating intervention policy schema...")
+    config_path = os.path.join(SCHEMAS_DIR, 'intervention_policy.json')
+    with open(config_path, 'r') as config_file:
+        response_schema = json.load(config_file)
+    validate_schema(response_schema)
+
+    prompt = llm.create_interventions_from_dataset_prompt(amr, dataset, response_schema)
+    output = llm.send_to_llm_with_json_output(prompt, response_schema)
+
+    print("There are ", len(output["interventionPolicies"]), "intervention policies identified from the dataset.")
+
+    return output
+
+
 def model_card_chain(llm: LlmToolsInterface, amr: str, research_paper: str = None) -> dict:
     print("Uploading and validating model card schema...")
     config_path = os.path.join(SCHEMAS_DIR, 'model_card.json')

@@ -47,6 +47,10 @@ class LlmToolsInterface:
         """Create a prompt to extract interventions from a document"""
         pass
 
+    def create_interventions_from_dataset_prompt(self, amr: str, dataset: List[str], schema: str) -> str:
+        """Create a prompt to extract interventions from a dataset"""
+        pass
+
     def create_model_card_prompt(self, amr: str, document: str, schema: str) -> str:
         """Create a prompt that produces a model card"""
         pass

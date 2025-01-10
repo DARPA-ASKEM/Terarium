@@ -31,6 +31,7 @@ setup(
             "gollm:chart_annotation=tasks.chart_annotation:main",
             "gollm:generate_summary=tasks.general_query:main",
             "gollm:interventions_from_document=tasks.interventions_from_document:main",
+            "gollm:interventions_from_dataset=tasks.interventions_from_dataset:main",
             "gollm:model_card=tasks.model_card:main"
         ],
     },

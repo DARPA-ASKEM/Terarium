@@ -1,6 +1,8 @@
 import boto3
 import json
 import os
+from typing import List
+
 from common.LlmToolsInterface import LlmToolsInterface
 from common.prompts.amr_enrichment import ENRICH_PROMPT
 from common.prompts.chart_annotation import CHART_ANNOTATION_PROMPT
@@ -17,6 +19,7 @@ from common.prompts.dataset_enrichment import DATASET_ENRICH_PROMPT
 from common.prompts.equations_cleanup import EQUATIONS_CLEANUP_PROMPT
 from common.prompts.equations_from_image import EQUATIONS_FROM_IMAGE_PROMPT
 from common.prompts.general_query import GENERAL_QUERY_PROMPT
+from common.prompts.interventions_from_dataset import INTERVENTIONS_FROM_DATASET_PROMPT
 from common.prompts.interventions_from_document import INTERVENTIONS_FROM_DOCUMENT_PROMPT
 from common.prompts.latex_style_guide import LATEX_STYLE_GUIDE
 from common.prompts.latex_to_sympy import LATEX_TO_SYMPY_PROMPT
@@ -33,7 +36,6 @@ from common.utils import (
     unescape_curly_braces
 )
 from llms.llama.prompts.llama_prompts import LLAMA_START_PROMPT, LLAMA_RETURN_INSTRUCTIONS, LLAMA_END_PROMPT
-from typing import List
 
 GPT_MODEL = "us.meta.llama3-2-90b-instruct-v1:0"
 
@@ -224,11 +226,26 @@ class LlamaTools(LlmToolsInterface):
 
 
     def create_interventions_from_document_prompt(self, amr: str, document: str, schema: str) -> str:
-        print("Building prompt to extract model configurations from a reasearch paper...")
+        print("Building prompt to extract interventions from a reasearch paper...")
         prompt = LLAMA_START_PROMPT
         prompt += INTERVENTIONS_FROM_DOCUMENT_PROMPT.format(
             amr=escape_curly_braces(amr),
             research_paper=escape_curly_braces(normalize_greek_alphabet(document))
+        )
+        prompt += LLAMA_RETURN_INSTRUCTIONS.format(
+            schema=schema
+        )
+        prompt += LLAMA_END_PROMPT
+        return prompt
+
+
+    def create_interventions_from_dataset_prompt(self, amr: str, dataset: List[str], schema: str) -> str:
+        print("Building prompt to extract interventions from a dataset...")
+        dataset_text = os.linesep.join(dataset)
+        prompt = LLAMA_START_PROMPT
+        prompt += INTERVENTIONS_FROM_DATASET_PROMPT.format(
+            amr=escape_curly_braces(amr),
+            dataset=escape_curly_braces(normalize_greek_alphabet(dataset_text))
         )
         prompt += LLAMA_RETURN_INSTRUCTIONS.format(
             schema=schema

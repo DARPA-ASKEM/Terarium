@@ -14,6 +14,11 @@ class InterventionsFromDocument(BaseModel):
     amr: str  # expects AMR in a stringified JSON object
 
 
+class InterventionsFromDataset(BaseModel):
+    dataset: List[str]
+    amr: str  # expects AMR in a stringified JSON object
+
+
 class ConfigureModelDataset(BaseModel):
     dataset: List[str]
     amr: str  # expects AMR in a stringified JSON object

@@ -16,6 +16,7 @@ from common.prompts.dataset_enrichment import DATASET_ENRICH_PROMPT
 from common.prompts.equations_cleanup import EQUATIONS_CLEANUP_PROMPT
 from common.prompts.equations_from_image import EQUATIONS_FROM_IMAGE_PROMPT
 from common.prompts.general_query import GENERAL_QUERY_PROMPT
+from common.prompts.interventions_from_dataset import INTERVENTIONS_FROM_DATASET_PROMPT
 from common.prompts.interventions_from_document import INTERVENTIONS_FROM_DOCUMENT_PROMPT
 from common.prompts.latex_style_guide import LATEX_STYLE_GUIDE
 from common.prompts.latex_to_sympy import LATEX_TO_SYMPY_PROMPT
@@ -178,10 +179,19 @@ class OpenAiTools(LlmToolsInterface):
 
 
     def create_interventions_from_document_prompt(self, amr: str, document: str, schema=None) -> str:
-        print("Building prompt to extract model configurations from a reasearch paper...")
+        print("Building prompt to extract interventions from a research paper...")
         return INTERVENTIONS_FROM_DOCUMENT_PROMPT.format(
             amr=escape_curly_braces(amr),
             research_paper=escape_curly_braces(normalize_greek_alphabet(document))
+        )
+
+
+    def create_interventions_from_dataset_prompt(self, amr: str, dataset: List[str], schema=None) -> str:
+        print("Building prompt to extract interventions from a dataset...")
+        dataset_text = os.linesep.join(dataset)
+        return INTERVENTIONS_FROM_DATASET_PROMPT.format(
+            amr=escape_curly_braces(amr),
+            dataset=escape_curly_braces(normalize_greek_alphabet(dataset_text))
         )
 
 
