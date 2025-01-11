@@ -79,8 +79,6 @@ import software.uncharted.terarium.hmiserver.service.data.ProvenanceService;
 import software.uncharted.terarium.hmiserver.service.notification.NotificationGroupInstance;
 import software.uncharted.terarium.hmiserver.service.notification.NotificationService;
 import software.uncharted.terarium.hmiserver.service.tasks.EquationsCleanupResponseHandler;
-import software.uncharted.terarium.hmiserver.service.tasks.LatexToAMRResponseHandler;
-// latex to model chain
 import software.uncharted.terarium.hmiserver.service.tasks.LatexToSympyResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.SympyToAMRResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.TaskService;
@@ -277,17 +275,31 @@ public class KnowledgeController {
 
 			try {
 				// 1. LaTeX to sympy code
-				final String latex = req.get("equations").toString();
+				final LatexToSympyResponseHandler.Input input = new LatexToSympyResponseHandler.Input();
+				final List<String> equationList = new ArrayList<>();
+				for (final JsonNode equation : equationsReq) {
+					equationList.add(equation.asText());
+				}
+				input.setEquations(equationList);
 				latexToSympyRequest.setType(TaskType.GOLLM);
-				latexToSympyRequest.setInput(latex.getBytes());
+				latexToSympyRequest.setInput(mapper.writeValueAsBytes(input));
 				latexToSympyRequest.setScript(LatexToSympyResponseHandler.NAME);
 				latexToSympyRequest.setUserId(currentUserService.get().getId());
 				latexToSympyRequest.setUseCache(false); // Don't cache because LLM can give incorrect result
 				latexToSympyResponse = taskService.runTaskSync(latexToSympyRequest);
 
 				// 2. hand off
-				final JsonNode node = mapper.readValue(latexToSympyResponse.getOutput(), JsonNode.class);
-				final String code = node.get("response").asText();
+				final LatexToSympyResponseHandler.Response response = mapper.readValue(
+					latexToSympyResponse.getOutput(),
+					LatexToSympyResponseHandler.Response.class
+				);
+				StringBuilder codeBuilder = new StringBuilder();
+				if (response.getResponse().get("equations").isArray()) {
+					for (JsonNode codeNode : response.getResponse().get("equations")) {
+						codeBuilder.append(codeNode.asText()).append("\n");
+					}
+				}
+				final String code = codeBuilder.toString().trim();
 
 				// 3. sympy code string to amr json
 				sympyToAMRRequest.setType(TaskType.MIRA);
