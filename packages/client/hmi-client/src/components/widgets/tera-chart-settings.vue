@@ -34,6 +34,7 @@
 			:variables="selectOptions"
 			@configuration-change="$emit('selection-change', $event.selectedVariable, type)"
 		/>
+		<slot></slot>
 		<template v-if="type === ChartSettingType.SENSITIVITY && sensitivityOptions">
 			<div class="mb-2"></div>
 			<!--FIXME: It might be better to move these inside the panel so that they can be controlled at an individual chart settings level -->

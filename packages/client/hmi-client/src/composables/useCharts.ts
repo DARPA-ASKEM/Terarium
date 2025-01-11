@@ -34,6 +34,7 @@ import { SimulateEnsembleMappingRow } from '@/components/workflow/ops/simulate-e
 import { getModelConfigName } from '@/services/model-configurations';
 import { EnsembleErrorData } from '@/components/workflow/ops/calibrate-ensemble-ciemss/calibrate-ensemble-util';
 import { PlotValue } from '@/components/workflow/ops/compare-datasets/compare-datasets-operation';
+import { DATASET_VAR_NAME_PREFIX } from '@/services/dataset';
 import { useChartAnnotations } from './useChartAnnotations';
 
 export interface ChartData {
@@ -42,6 +43,7 @@ export interface ChartData {
 	pyciemssMap: Record<string, string>;
 	translationMap: Record<string, string>;
 	resultGroupByTimepoint?: GroupedDataArray;
+	numComparableDatasets?: number;
 }
 
 type EnsembleVariableMappings = CalibrateEnsembleMappingRow[] | SimulateEnsembleMappingRow[];
@@ -193,7 +195,16 @@ export function useCharts(
 		return { statLayerVariables, sampleLayerVariables, options };
 	};
 
-	// Create options for forecast charts based on chart settings and model configuration
+	/**
+	 *
+	 * Create options for forecast charts based on chart settings and model configuration.
+	 *
+	 * **Note:** default `generateAnnotation` function in `useCharts` uses this function to generate chart variables and translations that needs to generate AI annotation.
+	 * If you need a custom way to create a chart option instead of using this, you need to provide a
+	 * custom `generateAnnotation` function to `tera-chart-settings-panel` component for the annotation to work.
+	 * @param setting ChartSetting
+	 * @returns ForecastChartOptions
+	 */
 	const createForecastChartOptions = (setting: ChartSetting) => {
 		if (isChartSettingEnsembleVariable(setting)) return createEnsembleVariableChartOptions(setting, '', true, true);
 		const variables = setting.selectedVariables;
@@ -211,6 +222,7 @@ export function useCharts(
 			scale: setting.scale
 		};
 
+		// Default variable names for simulate or calibrate
 		let sampleLayerVariables = [
 			`${chartData.value?.pyciemssMap[variables[0]]}:pre`,
 			`${chartData.value?.pyciemssMap[variables[0]]}`
@@ -220,12 +232,24 @@ export function useCharts(
 			`${chartData.value?.pyciemssMap[variables[0]]}_mean`
 		];
 
+		// Variable names for variable comparison charts
 		if (setting.type === ChartSettingType.VARIABLE_COMPARISON) {
 			statLayerVariables = variables.map((d) => `${chartData.value?.pyciemssMap[d]}_mean`);
 			sampleLayerVariables = variables.map((d) => `${chartData.value?.pyciemssMap[d]}`);
 			delete options.colorscheme;
 		}
-
+		// Variable names for compare dataset charts
+		else if (!_.isNil(chartData.value?.numComparableDatasets)) {
+			const varName = variables[0];
+			sampleLayerVariables = [];
+			statLayerVariables = [];
+			for (let i = 0; i < chartData.value.numComparableDatasets; i++) {
+				const rawVarName = chartData.value?.pyciemssMap[varName];
+				const aggSuffix = rawVarName.startsWith(DATASET_VAR_NAME_PREFIX) ? '' : '_mean';
+				sampleLayerVariables.push(`${chartData.value?.pyciemssMap[varName]}:${i}`);
+				statLayerVariables.push(`${chartData.value?.pyciemssMap[varName]}${aggSuffix}:${i}`);
+			}
+		}
 		return { statLayerVariables, sampleLayerVariables, options };
 	};
 
@@ -287,47 +311,45 @@ export function useCharts(
 	const useCompareDatasetCharts = (
 		chartSettings: ComputedRef<ChartSetting[]>,
 		selectedPlotType: ComputedRef<PlotValue>,
-		baselineName: ComputedRef<string | null>
+		baselineIndex: ComputedRef<number>
 	) => {
 		const compareDatasetCharts = computed(() => {
 			const charts: Record<string, VisualizationSpec> = {};
 			if (!isChartReadyToBuild.value) return charts;
-			const { resultSummary } = chartData.value as ChartData;
 
-			const datasetNames = Object.keys(resultSummary[0]).filter(
-				(key) => key !== 'timepoint_id' && key !== 'headerName'
-			);
 			// Make baseline black
-			const baselineIndex = datasetNames.indexOf(baselineName.value ?? '');
 			const colorScheme = cloneDeep(CATEGORICAL_SCHEME);
-			colorScheme[baselineIndex] = 'black';
+			colorScheme[baselineIndex.value] = 'black';
 
 			chartSettings.value.forEach((settings) => {
-				const headerName = settings.selectedVariables[0];
+				const varName = settings.selectedVariables[0];
+				const { statLayerVariables, sampleLayerVariables, options } = createForecastChartOptions(settings);
+				options.title = varName;
+				options.yAxisTitle = capitalize(selectedPlotType.value);
+				options.colorscheme = colorScheme;
+				options.legendProperties = { direction: 'vertical', columns: 1, labelLimit: options.width };
+
 				const annotations = getChartAnnotationsByChartId(settings.id);
-				const chart = applyForecastChartAnnotations(
-					createForecastChart(
-						null,
-						{
-							data: resultSummary.filter((d) => d.headerName === headerName),
-							variables: datasetNames,
-							timeField: 'timepoint_id'
-						},
-						null,
-						{
-							title: headerName,
-							legend: true,
-							width: chartSize.value.width,
-							height: chartSize.value.height,
-							xAxisTitle: getUnit('_time') || 'Time',
-							yAxisTitle: capitalize(selectedPlotType.value),
-							scale: settings.scale,
-							colorscheme: colorScheme,
-							legendProperties: { direction: 'vertical', columns: 3 }
-						}
-					),
-					annotations
-				);
+				const chart = !settings.showQuantiles
+					? applyForecastChartAnnotations(
+							createForecastChart(
+								null,
+								{
+									data: chartData.value?.resultSummary ?? [],
+									variables: statLayerVariables,
+									timeField: 'timepoint_id'
+								},
+								null,
+								options
+							),
+							annotations
+						)
+					: createQuantilesForecastChart(
+							chartData.value?.resultGroupByTimepoint ?? [],
+							sampleLayerVariables,
+							settings.quantiles ?? [],
+							options
+						);
 				charts[settings.id] = chart;
 			});
 			return charts;

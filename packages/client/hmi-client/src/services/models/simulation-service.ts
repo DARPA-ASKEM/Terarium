@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import { csvParse, autoType } from 'd3';
 import { logger } from '@/utils/logger';
 import API from '@/api/api';
@@ -22,6 +23,7 @@ import { useProjects } from '@/composables/project';
 import { subscribe, unsubscribe } from '@/services/ClientEventService';
 import { FIFOCache } from '@/utils/FifoCache';
 import { AxiosResponse } from 'axios';
+import { GroupedDataArray } from '@/services/charts';
 
 export type DataArray = Record<string, any>[];
 
@@ -485,3 +487,29 @@ export function extractModelConfigIdsInOrder(ensemblePyciemssMap: Record<string,
 		});
 	return result;
 }
+
+/**
+ * Group values for each variable by timepoint_id and sort them. This precomputed data will be used to calculate the quantiles on the fly.
+ * @param result Pyciemss result data
+ * @returns Array of objects where each object has variable names as keys and sorted values as values.
+ * e.g. [{variable1: [1, 2, 3], variable2: [4, 5, 6]}, ...] where each item in the variable array is a sample value.
+ */
+export const processAndSortSamplesByTimepoint = (result: DataArray) => {
+	// Sort sample values for each variable grouped by timepoint_id (this precomputed data will be used to calculate the quantiles on the fly)
+	// If this becomes a performance bottleneck, we can consider using web workers or chunked sorting with setTimeout to avoid blocking the main thread.
+	const grouped = _.groupBy(result, 'timepoint_id');
+	const resultGroupByTimepointId: GroupedDataArray = [];
+	Object.entries(grouped).forEach(([timepointId, samples]) => {
+		const obj: Record<string, number[]> = {};
+		samples.forEach((sample) => {
+			Object.entries(sample).forEach(([variable, value]) => {
+				if (obj[variable] === undefined) obj[variable] = [];
+				obj[variable].push(value);
+			});
+		});
+		// sort the values for each variable
+		Object.values(obj).forEach((values) => values.sort((a, b) => a - b));
+		resultGroupByTimepointId[timepointId] = obj;
+	});
+	return resultGroupByTimepointId;
+};
