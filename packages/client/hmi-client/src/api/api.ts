@@ -4,7 +4,6 @@ import { EventSource } from 'extended-eventsource';
 import { ServerError } from '@/types/ServerError';
 import { Ref, ref } from 'vue';
 import { activeProjectId } from '@/composables/activeProject';
-import { isEmpty } from 'lodash';
 import useAuthStore from '../stores/auth';
 
 export class FatalError extends Error {}
@@ -13,6 +12,11 @@ function getProjectIdFromUrl(): string | null {
 	const url = new URL(window.location.href);
 	const match = url.pathname.match(/\/projects\/([a-z,0-9,-]+)\//);
 	return match ? match[1] : null;
+}
+
+function getProjectId(): string | null {
+	// ActiveProjectId is often not available when the API is called from a global context or immediately after pages are hard refreshed, so we need to check the URL for the project id
+	return activeProjectId.value ?? localStorage.getItem('activeProjectId') ?? getProjectIdFromUrl() ?? null;
 }
 
 const API = axios.create({
@@ -27,8 +31,8 @@ API.interceptors.request.use(
 	(config) => {
 		const auth = useAuthStore();
 		config.headers.setAuthorization(`Bearer ${auth.getToken()}`);
-		// ActiveProjectId is often not available when the API is called from a global context or immediately after pages are hard refreshed, so we need to check the URL for the project id
-		const projectId = isEmpty(activeProjectId.value) ? getProjectIdFromUrl() : activeProjectId.value;
+		const projectId = getProjectId();
+		console.log('projectId', projectId);
 		if (projectId) {
 			if (config.params) {
 				config.params['project-id'] = projectId;

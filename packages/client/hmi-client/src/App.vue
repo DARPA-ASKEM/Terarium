@@ -28,8 +28,8 @@ const toast = useToastService();
 /* Router */
 const route = useRoute();
 const router = useRouter();
-const currentRoute = useCurrentRoute();
-const displayNavBar = computed(() => currentRoute.value.name !== 'unauthorized');
+const currentRoute = (useCurrentRoute().value.name ?? '').toString();
+const displayNavBar = computed(() => !['unauthorized', RouteName.WorkflowNode.toString()].includes(currentRoute));
 
 /* Project */
 API.interceptors.response.use(
