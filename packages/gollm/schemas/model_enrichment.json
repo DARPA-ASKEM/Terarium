@@ -1,0 +1,363 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "modelCard": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "A detailed description of the model and how it was used. Summarize all the information extracted from the paper. Mention if it can likely be represented in Petri Net format."
+        },
+        "specs": {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "array",
+              "description": "List of domains the model can be used for.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "type": {
+              "type": "string",
+              "description": "Mathematical Model / Graphical Model / Other"
+            },
+            "specification": {
+              "type": "string",
+              "description": "Provide as much detail as possible about the model's structure and complexity. This can include information such as the number of places, transitions, parameter count, and arcs."
+            },
+            "states": {
+              "type": "array",
+              "description": "A list of state descriptions.",
+              "items": {
+                "type": "string",
+                "description": "A short paragraph describing and summarizing the model state. The paragraph should start with the state name, then a colon, then a description of the state including what units to use for it, and how this state can transition to other states."
+              }
+            },
+            "parameters": {
+              "type": "array",
+              "description": "A list of parameter descriptions.",
+              "items": {
+                "type": "string",
+                "description": "A short paragraph describing and summarizing the model parameter. The paragraph should start with the parameter name, then a colon, then a description of the parameter including what units to use for it."
+              }
+            }
+          },
+          "required": [
+            "domain",
+            "type",
+            "specification",
+            "states",
+            "parameters"
+          ],
+          "additionalProperties": false
+        },
+        "uses": {
+          "type": "object",
+          "properties": {
+            "directUse": {
+              "type": "string",
+              "description": "Explain how the model can be used to analyze or simulate specific systems or processes."
+            },
+            "outOfScopeUse": {
+              "type": "string",
+              "description": "Describe scenarios where using the model would be inappropriate or misleading."
+            }
+          },
+          "required": [
+            "directUse",
+            "outOfScopeUse"
+          ],
+          "additionalProperties": false
+        },
+        "biasRisksLimitations": {
+          "type": "object",
+          "properties": {
+            "biases": {
+              "type": "string",
+              "description": "Describe sources of bias and how these biases can affect simulation results of this model."
+            },
+            "risks": {
+              "type": "string",
+              "description": "Describe sources of risks and how these risks can affect simulation results of this model."
+            },
+            "limitations": {
+              "type": "string",
+              "description": "Describe sources of limitations and how these limitations can affect simulation results of this model."
+            }
+          },
+          "required": [
+            "biases",
+            "risks",
+            "limitations"
+          ],
+          "additionalProperties": false
+        },
+        "testing": {
+          "type": "object",
+          "properties": {
+            "validation": {
+              "type": "string",
+              "description": "Describe how the model was validated, e.g., through simulation, comparison with real-world data, etc."
+            },
+            "metrics": {
+              "type": "string",
+              "description": "Describe the metrics used to evaluate the model."
+            }
+          },
+          "required": [
+            "validation",
+            "metrics"
+          ],
+          "additionalProperties": false
+        },
+        "gettingStarted": {
+          "type": "object",
+          "properties": {
+            "steps": {
+              "type": "array",
+              "description": "a list of steps to use this model or a list of steps to get started with the model.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "examples": {
+              "type": "array",
+              "description": "List of examples used in the paper to help users get started with the model.",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "steps",
+            "examples"
+          ],
+          "additionalProperties": false
+        },
+        "glossary": {
+          "type": "array",
+          "description": "List of terms used in the paper and their definitions.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "authors": {
+          "type": "array",
+          "description": "List of authors of the paper.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "citations": {
+          "type": "array",
+          "description": "List of citations used in the paper.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "moreInformation": {
+          "type": "object",
+          "properties": {
+            "fundedBy": {
+              "type": "string",
+              "description": "If applicable, list the funding sources describe in the paper."
+            },
+            "links": {
+              "type": "array",
+              "description": "List of links to additional information about the model.",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "fundedBy",
+            "links"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "summary",
+        "specs",
+        "uses",
+        "biasRisksLimitations",
+        "testing",
+        "gettingStarted",
+        "glossary",
+        "authors",
+        "citations",
+        "moreInformation"
+      ],
+      "additionalProperties": false
+    },
+    "modelEnrichment": {
+      "type": "object",
+      "properties": {
+        "states": {
+          "type": "array",
+          "description": "A list of descriptions and units for states defined in an AMR model.",
+          "items": {
+            "type": "object",
+            "description": "The description and units for a state defined in an AMR model.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The id of the state in the AMR model."
+              },
+              "description": {
+                "type": "string",
+                "description": "A brief description of the state."
+              },
+              "units": {
+                "type": "object",
+                "properties": {
+                  "expression": {
+                    "type": "string",
+                    "description": "A string representation of the units. Units can be either a single unit or a rate expression."
+                  },
+                  "expressionMathml": {
+                    "type": "string",
+                    "description": "A MathML representation of expression."
+                  }
+                },
+                "required": [
+                  "expression",
+                  "expressionMathml"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "description",
+              "units"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "parameters": {
+          "type": "array",
+          "description": "A list of descriptions and units for parameters defined in an AMR model.",
+          "items": {
+            "type": "object",
+            "description": "The description and units for a parameter defined in an AMR model.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The id of the parameter in the AMR model."
+              },
+              "description": {
+                "type": "string",
+                "description": "A brief description of the parameter."
+              },
+              "units": {
+                "type": "object",
+                "properties": {
+                  "expression": {
+                    "type": "string",
+                    "description": "A string representation of the units. Units can be either a single unit or a rate expression."
+                  },
+                  "expressionMathml": {
+                    "type": "string",
+                    "description": "A MathML representation of expression."
+                  }
+                },
+                "required": [
+                  "expression",
+                  "expressionMathml"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "description",
+              "units"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "observables": {
+          "type": "array",
+          "description": "A list of descriptions and units for observables defined in an AMR model.",
+          "items": {
+            "type": "object",
+            "description": "The description and units for an observable defined in an AMR model.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The id of the observable in the AMR model."
+              },
+              "description": {
+                "type": "string",
+                "description": "A brief description of the observable."
+              },
+              "units": {
+                "type": "object",
+                "properties": {
+                  "expression": {
+                    "type": "string",
+                    "description": "A string representation of the units. Units can be either a single unit or a rate expression."
+                  },
+                  "expressionMathml": {
+                    "type": "string",
+                    "description": "A MathML representation of expression."
+                  }
+                },
+                "required": [
+                  "expression",
+                  "expressionMathml"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "description",
+              "units"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "description": "A list of descriptions for transitions defined in an AMR model.",
+          "items": {
+            "type": "object",
+            "description": "The description for a transition defined in an AMR model.",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The id of the observable in the AMR model."
+              },
+              "description": {
+                "type": "string",
+                "description": "A brief description of the transition."
+              }
+            },
+            "required": [
+              "id",
+              "description"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "states",
+        "parameters",
+        "observables",
+        "transitions"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "modelCard",
+    "modelEnrichment"
+  ],
+  "additionalProperties": false
+}

@@ -140,6 +140,10 @@
                             "enabled": false
                         }
                     }
+                },
+                "stats": {
+                    "type": "object",
+                    "enabled": false
                 }
             }
         }

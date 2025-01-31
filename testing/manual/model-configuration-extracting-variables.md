@@ -73,7 +73,7 @@ Report any issues into GitHub: [open an issue](https://github.com/DARPA-ASKEM/te
             - β_46_89_46_89 = 0.2
         - Gamma and P should be blank
         - The source should be "SIR contact matrix"
-        - The initials should be the same as the default configuration
+        - The initials should be blank
 
 ### 5. The gold standard - SIDARTHE model
 1. Add the SIDARTHE model to the workflow 

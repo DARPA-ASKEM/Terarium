@@ -601,11 +601,12 @@ public class ElasticsearchService {
 				if (knn.numCandidates() < knn.k()) {
 					throw new IllegalArgumentException("Number of candidates must be greater than or equal to k");
 				}
-				builder.knn(knn);
-			}
 
-			if (query != null) {
-				builder.query(query);
+				if (query != null) {
+					knn.filter().add(query);
+				}
+
+				builder.knn(knn);
 			}
 
 			final SearchRequest req = builder.build();

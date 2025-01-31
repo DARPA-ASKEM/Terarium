@@ -4,7 +4,6 @@ import os
 from typing import List, Optional
 
 from common.LlmToolsInterface import LlmToolsInterface
-from common.prompts.amr_enrichment import ENRICH_PROMPT
 from common.prompts.chart_annotation import CHART_ANNOTATION_PROMPT
 from common.prompts.config_from_dataset import (
     CONFIGURE_FROM_DATASET_PROMPT,
@@ -27,6 +26,7 @@ from common.prompts.interventions_from_document import INTERVENTIONS_FROM_DOCUME
 from common.prompts.latex_style_guide import LATEX_STYLE_GUIDE
 from common.prompts.latex_to_sympy import LATEX_TO_SYMPY_PROMPT
 from common.prompts.model_card import MODEL_CARD_PROMPT
+from common.prompts.model_enrichment import (MODEL_ENRICH_PROMPT_WITH_DOCUMENT, MODEL_ENRICH_PROMPT_WITHOUT_DOCUMENT)
 from common.prompts.model_meta_compare import (
     MODEL_METADATA_COMPARE_PROMPT,
     MODEL_METADATA_COMPARE_GOAL_PROMPT,
@@ -140,10 +140,19 @@ class LlamaTools(LlmToolsInterface):
     def create_enrich_model_prompt(self, amr: str, document: str, schema: str) -> str:
         print("Building prompt to extract model enrichments from a document...")
         prompt = LLAMA_START_PROMPT
-        prompt += ENRICH_PROMPT.format(
-            amr=escape_curly_braces(amr),
-            research_paper=escape_curly_braces(document)
-        )
+
+        if (document is None) or (document == ''):  # If no document is provided
+            print("Building prompt to extract model enrichments without a document...")
+            prompt += MODEL_ENRICH_PROMPT_WITHOUT_DOCUMENT.format(
+                amr=escape_curly_braces(amr)
+            )
+        else:
+            print("Building prompt to extract model enrichments from a document...")
+            prompt += MODEL_ENRICH_PROMPT_WITH_DOCUMENT.format(
+                amr=escape_curly_braces(amr),
+                document=escape_curly_braces(document)
+            )
+
         prompt += LLAMA_RETURN_INSTRUCTIONS.format(
             schema=schema
         )
