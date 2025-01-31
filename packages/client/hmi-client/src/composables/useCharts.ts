@@ -176,7 +176,7 @@ const normalizeStratifiedModelChartData = (setting: ChartSettingComparison, data
 						if (includeBeforeData) {
 							newEntry[`${variable}:pre`] = !group
 								? row[variable]
-								: calculatePercentages(row[variable], denominatorValues);
+								: calculatePercentages(row[`${variable}:pre`], denominatorValues);
 						}
 					});
 			});
@@ -559,6 +559,7 @@ export function useCharts(
 			// loaded before rendering the charts, but beware to not break rendering in the case
 			// when there are no interventions
 
+			// TODO: create the color map outside of this function and pass `interventionNameColorMap` as parameter
 			const { interventionNameColorMap } = getInterventionColorAndScoreMaps(
 				datasets,
 				modelConfigurations,
@@ -1292,6 +1293,7 @@ export function useCharts(
 	};
 }
 
+// TODO: Move this out of this file. Maybe to compare-datasets-utils.ts
 export function getInterventionColorAndScoreMaps(
 	datasets: Ref<Dataset[]>,
 	modelConfigurations: Ref<ModelConfiguration[]>,

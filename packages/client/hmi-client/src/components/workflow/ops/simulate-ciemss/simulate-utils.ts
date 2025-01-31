@@ -39,6 +39,7 @@ export function usePreparedChartInputs(
 		const reverseMap: Record<string, string> = {};
 		Object.keys(pyciemssMap.value).forEach((key) => {
 			reverseMap[pyciemssMap.value[key]] = key;
+			reverseMap[`${pyciemssMap.value[key]}:pre`] = `${key} (baseline)`;
 			reverseMap[`${pyciemssMap.value[key]}_mean`] = key;
 			reverseMap[`${pyciemssMap.value[key]}_mean:pre`] = `${key} (baseline)`;
 		});
