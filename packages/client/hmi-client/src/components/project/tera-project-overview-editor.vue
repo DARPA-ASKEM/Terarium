@@ -4,7 +4,9 @@
 	<section v-if="editorContent.length === 0" class="empty-state">
 		<Vue3Lottie :animationData="EmptySeed" :height="150" loop autoplay />
 		<p class="helpMessage"><strong>Use this space however you like.</strong></p>
-		<p class="helpMessage">Just click and start typing.</p>
+		<div class="flex gap-1">
+			<p class="helpMessage">Just click and start typing.</p>
+		</div>
 	</section>
 
 	<!-- empty state message -->
@@ -19,7 +21,7 @@
 		<div class="p-message-content">
 			<p>Here are some things you can try:</p>
 			<ul>
-				<li><b>Upload stuff.</b> Upload documents, models or datasets.</li>
+				<li><b>Upload stuff.</b> Drag documents, models and datasets onto the resources panel to upload files.</li>
 				<li>
 					<b>Build a model.</b> Extract equations from documents or use LaTex to create a model that fits what you need.
 				</li>
@@ -155,7 +157,7 @@ const showWelcomeMessage = ref(true);
 	flex-direction: column;
 	border: 1px solid var(--surface-border-light);
 	z-index: 10;
-	background-color: var(--yellow-50);
+	background: linear-gradient(to right, var(--yellow-100), var(--yellow-50));
 }
 .welcome-message .p-message-content {
 	display: flex;

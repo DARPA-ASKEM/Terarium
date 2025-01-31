@@ -10,8 +10,9 @@
 			<tera-slider-panel
 				v-if="pdfData.length"
 				v-model:is-open="isPdfSidebarOpen"
-				content-width="700px"
+				:content-width="isSidebarOpen ? 'calc(50vw - 320px)' : '50vw'"
 				header="Document viewer"
+				:documentViewer="true"
 			>
 				<template #content>
 					<tera-drilldown-section :is-loading="isFetchingPDF">
@@ -56,6 +57,7 @@
 									@click="onReplacePolicy(policy)"
 									@use-intervention="onReplacePolicy(policy)"
 									@delete-intervention-policy="onDeleteInterventionPolicy(policy)"
+									class="mb-2"
 								/>
 							</li>
 						</ul>
@@ -72,7 +74,10 @@
 				</template>
 				<ul class="flex flex-column gap-2">
 					<li
-						v-for="(intervention, index) in knobs.transientInterventionPolicy.interventions"
+						v-for="(intervention, index) in knobs.transientInterventionPolicy.interventions.slice(
+							firstRow,
+							firstRow + MAX_NUMBER_OF_ROWS
+						)"
 						:key="index"
 						@click="selectInterventionPolicy(intervention, index)"
 					>
@@ -97,6 +102,20 @@
 					icon="pi pi-plus"
 					size="small"
 				/>
+				<template #footer>
+					<section class="paginator w-full">
+						<Paginator
+							v-if="knobs.transientInterventionPolicy.interventions.length > MAX_NUMBER_OF_ROWS"
+							:rows="MAX_NUMBER_OF_ROWS"
+							:first="firstRow"
+							:total-records="knobs.transientInterventionPolicy.interventions.length"
+							:template="{
+								default: 'FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink JumpToPageDropdown'
+							}"
+							@page="firstRow = $event.first"
+						/>
+					</section>
+				</template>
 			</tera-drilldown-section>
 			<tera-drilldown-section>
 				<template #header-controls-left>
@@ -161,10 +180,7 @@
 									>
 										<h6 class="pb-1">{{ intervention.name }}</h6>
 										<ul v-if="!isEmpty(intervention.staticInterventions)">
-											<li
-												v-for="staticIntervention in intervention.staticInterventions"
-												:key="staticIntervention.timestep"
-											>
+											<li v-for="(staticIntervention, index) in intervention.staticInterventions" :key="index">
 												<p>
 													Set {{ staticIntervention.type }} {{ appliedTo }} to {{ staticIntervention.value }} at time
 													step {{ staticIntervention.timestep }}.
@@ -202,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import _, { cloneDeep, groupBy, isEmpty, omit } from 'lodash';
+import _, { cloneDeep, groupBy, isEmpty, isEqual, omit } from 'lodash';
 import { ComponentPublicInstance, computed, nextTick, onMounted, ref, watch } from 'vue';
 import TeraDrilldown from '@/components/drilldown/tera-drilldown.vue';
 import TeraDrilldownSection from '@/components/drilldown/tera-drilldown-section.vue';
@@ -210,15 +226,19 @@ import { WorkflowNode } from '@/types/workflow';
 import TeraSliderPanel from '@/components/widgets/tera-slider-panel.vue';
 import TeraColumnarPanel from '@/components/widgets/tera-columnar-panel.vue';
 import Button from 'primevue/button';
+import Paginator from 'primevue/paginator';
 import TeraInputText from '@/components/widgets/tera-input-text.vue';
 import { getInterventionPoliciesForModel, getModel } from '@/services/model';
 import {
 	AssetType,
+	ClientEvent,
+	ClientEventType,
 	Intervention,
 	InterventionPolicy,
 	Model,
 	DynamicIntervention,
 	StaticIntervention,
+	TaskStatus,
 	type TaskResponse,
 	type DocumentAsset
 } from '@/types/Types';
@@ -230,7 +250,6 @@ import TeraToggleableInput from '@/components/widgets/tera-toggleable-input.vue'
 import {
 	blankIntervention,
 	flattenInterventionData,
-	getInterventionPolicyById,
 	updateInterventionPolicy,
 	deleteInterventionPolicy
 } from '@/services/intervention-policy';
@@ -245,15 +264,17 @@ import { createInterventionChart } from '@/services/charts';
 import VegaChart from '@/components/widgets/VegaChart.vue';
 import TeraSaveAssetModal from '@/components/project/tera-save-asset-modal.vue';
 import { useProjects } from '@/composables/project';
-import { interventionPolicyFromDocument } from '@/services/goLLM';
+import { interventionPolicyFromDocument, interventionPolicyFromDataset } from '@/services/goLLM';
 import { downloadDocumentAsset, getDocumentAsset, getDocumentFileAsText } from '@/services/document-assets';
 import TeraPdfPanel from '@/components/widgets/tera-pdf-panel.vue';
+import { useClientEvent } from '@/composables/useClientEvent';
 import TeraInterventionCard from './tera-intervention-card.vue';
 import {
 	InterventionPolicyOperation,
 	InterventionPolicyState,
 	isInterventionPoliciesEqual,
-	isInterventionPoliciesValuesEqual
+	isInterventionPoliciesValuesEqual,
+	isInterventionPolicyBlank
 } from './intervention-policy-operation';
 import TeraInterventionPolicyCard from './tera-intervention-policy-card.vue';
 
@@ -289,9 +310,12 @@ interface SelectedIntervention {
 	dynamicInterventions: DynamicIntervention[];
 }
 
+const modelId: string | undefined = props.node.inputs[0].value?.[0];
+const MAX_NUMBER_OF_ROWS = 8;
+const firstRow = ref(0);
+
 const currentActiveIndicies = ref([0, 1]);
 const pdfPanelRef = ref();
-const pdfViewer = computed(() => pdfPanelRef.value?.pdfRef[0]);
 const selectedIntervention = ref<SelectedIntervention | null>(null);
 
 const isPdfSidebarOpen = ref(true);
@@ -304,14 +328,13 @@ const filterInterventionsText = ref('');
 const model = ref<Model | null>(null);
 const isFetchingPolicies = ref(false);
 const isLoading = ref(false);
-const interventionsPolicyList = ref<InterventionPolicy[]>([]);
+const interventionPoliciesList = ref<InterventionPolicy[]>([]);
 const interventionPoliciesFiltered = computed(() =>
-	interventionsPolicyList.value
+	interventionPoliciesList.value
 		.filter((policy) => policy.name?.toLowerCase().includes(filterInterventionsText.value.toLowerCase()))
 		.sort((a, b) => sortDatesDesc(a.createdOn, b.createdOn))
 );
 
-const selectedPolicyId = computed(() => props.node.outputs.find((o) => o.id === props.node.active)?.value?.[0]);
 const selectedPolicy = ref<InterventionPolicy | null>(null);
 
 const newDescription = ref('');
@@ -328,6 +351,9 @@ const isSaveDisabled = computed(() => {
 	// Check if the IDs of the transient and selected policies differ
 	const isPolicyIdDifferent = transientPolicyId !== selectedPolicy.value?.id;
 
+	// Check if the selected policy blank
+	const isPolicyBlank = isInterventionPolicyBlank(selectedPolicy.value);
+
 	// Check if the policies themselves are equal
 	const arePoliciesEqual = isInterventionPoliciesEqual(transientPolicy, selectedPolicy.value);
 
@@ -336,7 +362,7 @@ const isSaveDisabled = computed(() => {
 
 	// Disable save if either the policy ID is different, the policies are equal,
 	// or the policy values are not equal
-	return hasSelectedPolicy && (isPolicyIdDifferent || arePoliciesEqual || !arePolicyValuesEqual);
+	return hasSelectedPolicy && !isPolicyBlank && (isPolicyIdDifferent || arePoliciesEqual || !arePolicyValuesEqual);
 });
 
 const documentIds = computed(() =>
@@ -344,6 +370,12 @@ const documentIds = computed(() =>
 		.filter((input) => input.type === 'documentId' && input.status === 'connected')
 		.map((input) => input.value?.[0]?.documentId)
 		.filter((id): id is string => id !== undefined)
+);
+
+const datasetIds = computed(() =>
+	props.node.inputs
+		.filter((input) => input.type === 'datasetId' && input.status === 'connected')
+		.map((input) => input.value?.[0])
 );
 
 const parameterOptions = computed(() => {
@@ -395,20 +427,20 @@ const getInterventionsAppliedTo = (appliedTo: string) =>
 
 const initialize = async (overwriteWithState: boolean = false) => {
 	const state = props.node.state;
-	const modelId = props.node.inputs[0].value?.[0];
-	if (!modelId) return;
+	const selectedOutput = cloneDeep(props.node.outputs.find((o) => o.id === props.node.active));
+	const selectedPolicyId: string | null = selectedOutput?.value?.[0];
 
-	// fetch intervention policies
-	await fetchInterventionPolicies(modelId);
+	await fetchInterventionPolicies();
 
-	model.value = await getModel(modelId);
-	if (selectedPolicyId.value) {
-		selectedPolicy.value = await getInterventionPolicyById(selectedPolicyId.value);
-		knobs.value.transientInterventionPolicy = cloneDeep(
-			!overwriteWithState ? selectedPolicy.value : state.interventionPolicy
-		);
-	} else {
+	selectedPolicy.value =
+		interventionPoliciesList.value.find(({ id }) => id === selectedPolicyId) ??
+		(selectedOutput?.state as InterventionPolicy) ??
+		null;
+
+	if (overwriteWithState || !selectedPolicy.value) {
 		knobs.value.transientInterventionPolicy = cloneDeep(state.interventionPolicy);
+	} else {
+		knobs.value.transientInterventionPolicy = cloneDeep(selectedPolicy.value);
 	}
 	selectedCharts.value = state.selectedCharts ?? [];
 };
@@ -439,19 +471,14 @@ const applyInterventionPolicy = (interventionPolicy: InterventionPolicy) => {
 	logger.success(`Policy applied ${interventionPolicy.name}`);
 };
 
-const fetchInterventionPolicies = async (modelId: string) => {
+const fetchInterventionPolicies = async () => {
 	isFetchingPolicies.value = true;
-	interventionsPolicyList.value = await getInterventionPoliciesForModel(modelId);
+	interventionPoliciesList.value = await getInterventionPoliciesForModel(modelId);
 	isFetchingPolicies.value = false;
 };
 
 const selectInterventionPolicy = (intervention: Intervention, index: number) => {
 	selectedIntervention.value = { ...intervention, index };
-	if (!intervention?.extractionPage) return;
-
-	if (pdfViewer.value) {
-		pdfViewer.value.goToPage(selectedIntervention.value.extractionPage);
-	}
 };
 
 const onUpdateInterventionCard = (intervention: Intervention, index: number) => {
@@ -484,15 +511,13 @@ const onReplacePolicy = (policy: InterventionPolicy) => {
 const onDeleteInterventionPolicy = (policy: InterventionPolicy) => {
 	confirm.require({
 		message: `Are you sure you want to delete the configuration ${policy.name}?`,
-		header: 'Delete Confirmation',
-		icon: 'pi pi-exclamation-triangle',
+		header: 'Delete confirmation',
 		acceptLabel: 'Confirm',
 		rejectLabel: 'Cancel',
 		accept: async () => {
 			if (policy.id) {
 				await deleteInterventionPolicy(policy.id);
-				const modelId = props.node.inputs[0].value?.[0];
-				fetchInterventionPolicies(modelId);
+				fetchInterventionPolicies();
 			}
 		}
 	});
@@ -570,17 +595,15 @@ const onSaveInterventionPolicy = async () => {
 };
 
 const resetToBlankIntervention = () => {
-	const modelId = props.node.inputs[0].value?.[0];
 	if (!modelId) return;
-	knobs.value.transientInterventionPolicy = {
-		modelId,
-		interventions: [_.cloneDeep(blankIntervention)]
-	};
-
 	emit('append-output', {
 		type: InterventionPolicyOperation.outputs[0].type,
 		label: InterventionPolicyOperation.outputs[0].label,
-		value: null
+		value: null,
+		state: {
+			modelId,
+			interventions: [_.cloneDeep(blankIntervention)]
+		}
 	});
 };
 
@@ -604,8 +627,40 @@ const extractInterventionPolicyFromInputs = async () => {
 			}
 		});
 	}
+
+	if (datasetIds.value) {
+		const promiseList = [] as Promise<TaskResponse | null>[];
+		datasetIds.value.forEach((datasetId) => {
+			promiseList.push(
+				interventionPolicyFromDataset(datasetId, model.value?.id as string, props.node.workflowId, props.node.id)
+			);
+		});
+		const responsesRaw = await Promise.all(promiseList);
+
+		responsesRaw.forEach((resp) => {
+			if (resp) {
+				state.taskIds.push(resp.id);
+			}
+		});
+	}
 	emit('update-state', state);
 };
+
+// Listen for the task completion event
+const interventionEventHandler = async (event: ClientEvent<TaskResponse>) => {
+	const state = cloneDeep(props.node.state);
+	if (!state.taskIds.includes(event.data?.id)) return;
+	isLoading.value = true;
+	if ([TaskStatus.Success, TaskStatus.Cancelled, TaskStatus.Failed].includes(event.data.status)) {
+		state.taskIds = state.taskIds.filter((id) => id !== event.data.id);
+		isLoading.value = false;
+		if (!modelId) return;
+		await fetchInterventionPolicies();
+	}
+};
+
+useClientEvent(ClientEventType.TaskGollmInterventionsFromDocument, interventionEventHandler);
+useClientEvent(ClientEventType.TaskGollmInterventionsFromDataset, interventionEventHandler);
 
 const onSelectChartChange = () => {
 	const state = cloneDeep(props.node.state);
@@ -634,19 +689,24 @@ watch(
 
 watch(
 	() => props.node.state.taskIds,
-	async (watchVal) => {
-		if (watchVal.length > 0) {
+	async (newTaskIds, oldTaskIds) => {
+		// This gets triggered on state change for some reason this helps prevent fetching the policies multiple times
+		if (isEqual(newTaskIds, oldTaskIds)) {
+			return;
+		}
+		if (props.node.state.taskIds.length > 0) {
 			isLoading.value = true;
 		} else {
 			isLoading.value = false;
-			const modelId = props.node.inputs[0].value?.[0];
 			if (!modelId) return;
-			await fetchInterventionPolicies(modelId);
+			fetchInterventionPolicies();
 		}
 	}
 );
 
-onMounted(() => {
+onMounted(async () => {
+	if (modelId) model.value = await getModel(modelId);
+
 	if (props.node.active) {
 		// setting true will force overwrite the intervention policy with the current state on the node
 		initialize(true);
@@ -754,5 +814,9 @@ button.start-edit {
 
 .description {
 	margin-bottom: var(--gap-3);
+}
+
+.paginator {
+	padding: unset;
 }
 </style>

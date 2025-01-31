@@ -1,5 +1,11 @@
 <template>
-	<nav>
+	<nav
+		class="resource-panel-container"
+		@dragover.prevent="handleDragOver"
+		@dragleave.prevent="handleDragLeave"
+		@drop.prevent="handleDrop"
+		:class="{ dragging: isDragging }"
+	>
 		<header>
 			<InputText
 				v-model="searchAsset"
@@ -13,10 +19,13 @@
 				class="upload-resources-button"
 				size="small"
 				label="Upload"
+				severity="secondary"
+				outlined
 				@click="isUploadResourcesModalVisible = true"
 			/>
 			<tera-upload-resources-modal
 				:visible="isUploadResourcesModalVisible"
+				:files="droppedFiles"
 				@close="isUploadResourcesModalVisible = false"
 			/>
 		</header>
@@ -34,6 +43,7 @@
 			</span>
 		</Button>
 		<Accordion
+			style="background: transparent"
 			v-if="!isEmpty(assetItemsMap) && !useProjects().projectLoading.value"
 			:multiple="true"
 			:active-index="Array.from(activeAccordionTabs)"
@@ -114,6 +124,11 @@
 				<section v-if="assetItems.length == 0" class="empty-resource">Empty</section>
 			</AccordionTab>
 		</Accordion>
+		<!-- Drag & drop to upload files overlay -->
+		<div v-if="isDragging" class="drag-overlay">
+			<span class="pi pi-upload" style="font-size: 2rem" />
+			<p>Drop resources here</p>
+		</div>
 
 		<div v-if="useProjects().projectLoading.value" class="skeleton-container">
 			<Skeleton v-for="i in 10" :key="i" width="85%" />
@@ -207,6 +222,30 @@ function endDrag() {
 	deleteDragData('assetNode');
 	draggedAsset.value = null;
 }
+
+// Drag and drop files over panel to upload
+const isDragging = ref(false);
+
+function handleDragOver() {
+	isDragging.value = true;
+}
+
+function handleDragLeave() {
+	isDragging.value = false;
+}
+
+const droppedFiles = ref<File[]>([]); // For passing files dragged onto the resources panel into the uploader
+
+function handleDrop(event: DragEvent) {
+	isDragging.value = false;
+	if (!event.dataTransfer) return;
+
+	const files = Array.from(event.dataTransfer.files) as File[];
+	if (files.length > 0) {
+		droppedFiles.value = files;
+		isUploadResourcesModalVisible.value = true;
+	}
+}
 </script>
 
 <style scoped>
@@ -216,6 +255,9 @@ nav {
 	gap: var(--gap-4);
 }
 
+.resource-panel-container {
+	height: 100%;
+}
 nav > header {
 	padding-left: var(--gap-2);
 	padding-right: var(--gap-2);
@@ -369,5 +411,24 @@ p.remove {
 	& :deep(.p-button-label) {
 		flex-grow: 0;
 	}
+}
+
+.drag-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: var(--surface-highlight);
+	border: dashed 2px var(--primary-color);
+	display: flex;
+	flex-direction: column;
+	gap: var(--gap-4);
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	padding: var(--gap-4);
+	z-index: 10;
+	opacity: 0.9;
 }
 </style>

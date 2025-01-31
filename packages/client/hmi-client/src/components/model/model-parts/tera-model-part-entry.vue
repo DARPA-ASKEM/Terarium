@@ -1,5 +1,5 @@
 <template>
-	<section class="flex flex-column gap-2">
+	<section class="flex flex-column">
 		<span class="flex align-items-center gap-3">
 			<h6>{{ id }}</h6>
 			<span v-if="!isTimePart" class="name">
@@ -84,10 +84,10 @@
 			:expression="stringToLatexExpression(expression)"
 			:throw-on-error="false"
 		/>
-		<span v-if="!isTimePart" class="description">
+		<span v-if="!isTimePart" class="description" :class="{ 'mt-1': showDescription }">
 			<template v-if="featureConfig.isPreview">{{ descriptionText }}</template>
 			<tera-input-text
-				v-if="showDescription"
+				v-else-if="showDescription"
 				placeholder="Add a description"
 				v-model="descriptionText"
 				@change="$emit('update-item', { key: 'description', value: descriptionText })"
@@ -128,6 +128,8 @@ const emit = defineEmits(['update-item']);
 const nameText = ref(props.name);
 const unitExpression = ref(props.unitExpression);
 const descriptionText = ref(props.description);
+const showDescription = ref(!!descriptionText.value);
+
 const query = ref('');
 const results = ref<DKG[]>([]);
 
@@ -163,14 +165,26 @@ watch(
 );
 
 watch(
+	() => props.unitExpression,
+	(newUnitExpression) => {
+		unitExpression.value = newUnitExpression;
+	}
+);
+
+watch(
+	() => props.name,
+	(newName) => {
+		nameText.value = newName;
+	}
+);
+
+watch(
 	() => props.description,
 	(newDescription) => {
 		showDescription.value = !!newDescription;
 		descriptionText.value = newDescription;
-	},
-	{ deep: true }
+	}
 );
-const showDescription = ref(!!descriptionText.value);
 </script>
 
 <style scoped>
@@ -201,12 +215,19 @@ h6::after {
 }
 
 .expression {
+	padding-top: var(--gap-1);
+	align-content: center;
 	min-height: 2rem;
 	max-height: 12rem;
 	overflow: auto;
 }
 
+:deep(.unit .tera-input > main > input) {
+	height: 1.25rem;
+	font-size: var(--font-caption);
+}
 :deep(.p-autocomplete-input) {
-	padding: var(--gap-1) var(--gap-2);
+	height: 2rem;
+	font-size: var(--font-caption);
 }
 </style>

@@ -63,7 +63,6 @@ const getCreateTimeById = (id: string) => {
 .p-dropdown {
 	/*FIXME: We may want to truncate the text with ellipsis or something (up to designers) */
 	max-width: 25rem;
-	align-self: end;
 }
 
 .output-dropdown:deep(.p-inputtext) {

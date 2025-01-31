@@ -7,22 +7,14 @@
 			<DataTable
 				class="value-border"
 				:value="otherValueList"
-				@update:selection="onCustomSelectionChange"
+				v-model:selection="selectedRow"
+				selectionMode="single"
 				dataKey="id"
 				:rowsPerPageOptions="[10, 20, 50]"
 				tableStyle="min-width: 90rem"
+				@row-click="onRowSelect"
+				:metaKeySelection="false"
 			>
-				<Column headerStyle="width: 2rem">
-					<template #body="{ data }">
-						<RadioButton
-							v-model="customSelection"
-							:inputId="data.id"
-							:value="data"
-							variant="filled"
-							@change="onCustomSelectionChange(data)"
-						/>
-					</template>
-				</Column>
 				<Column
 					v-for="(col, index) in selectedColumns"
 					:field="col.field"
@@ -34,6 +26,9 @@
 					<template #body="{ data }">
 						<template v-if="col.field === 'name'">
 							{{ data.name }}
+						</template>
+						<template v-if="col.field === 'description'">
+							{{ data.description }}
 						</template>
 						<template v-if="col.field === 'source'">
 							{{ data.source }}
@@ -68,66 +63,54 @@
 						</template>
 					</template>
 				</Column>
-				<ColumnGroup type="footer">
-					<Row>
-						<Column>
-							<template #footer>
-								<RadioButton
-									v-model="customSelection"
-									value="true"
-									variant="filled"
-									@change="onCustomSelectionChange"
-								/>
-							</template>
-						</Column>
-						<Column :colspan="2">
-							<template #footer>
-								<tera-input-text
-									placeholder="Add a source"
-									v-model="customSource"
-									@update:modelValue="onCustomSelectionChange"
-									class="other-value-input"
-								/>
-							</template>
-						</Column>
-						<Column>
-							<template #footer>
-								<Dropdown v-model="numberType" :options="numberOptions" />
-							</template>
-						</Column>
-						<Column>
-							<template #footer v-if="numberType === numberOptions[0]">
+			</DataTable>
+
+			<div class="custom-input-section" :class="{ 'custom-selected': !selectedRow }" @click="onCustomSectionClick">
+				<div class="grid">
+					<div class="col-5">
+						<tera-input-text
+							placeholder="Add a source"
+							v-model="customSource"
+							@update:modelValue="onCustomSelectionChange"
+							class="w-full"
+							@click.stop
+						/>
+					</div>
+					<div class="col-3">
+						<Dropdown v-model="numberType" :options="numberOptions" class="w-full" @click.stop />
+					</div>
+					<div class="col-4">
+						<div v-if="numberType === numberOptions[0]" class="grid">
+							<div class="col-12">
 								<tera-input-number
 									placeholder="Constant"
 									v-model="customConstant"
 									@update:modelValue="onCustomSelectionChange"
-									class="other-value-input"
+									class="w-full"
 								/>
-							</template>
-						</Column>
-						<Column>
-							<template #footer v-if="numberType === numberOptions[1]">
+							</div>
+						</div>
+						<div v-else class="grid">
+							<div class="col-6">
 								<tera-input-number
 									placeholder="Min"
 									v-model="customMin"
 									@update:modelValue="onCustomSelectionChange"
-									class="mb-0"
+									class="w-full"
 								/>
-							</template>
-						</Column>
-						<Column>
-							<template #footer v-if="numberType === numberOptions[1]">
+							</div>
+							<div class="col-6">
 								<tera-input-number
 									placeholder="Max"
 									v-model="customMax"
 									@update:modelValue="onCustomSelectionChange"
-									class="mb-0"
+									class="w-full"
 								/>
-							</template>
-						</Column>
-					</Row>
-				</ColumnGroup>
-			</DataTable>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 		</section>
 		<template #footer>
 			<Button label="Apply selected value" @click="applySelectedValue" :disabled="!selection" />
@@ -149,9 +132,6 @@ import Button from 'primevue/button';
 import TeraModal from '@/components/widgets/tera-modal.vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import Row from 'primevue/row';
-import ColumnGroup from 'primevue/columngroup';
-import RadioButton from 'primevue/radiobutton';
 import TeraLineGraphic from './tera-line-graphic.vue';
 
 const props = defineProps<{
@@ -160,12 +140,14 @@ const props = defineProps<{
 }>();
 
 const otherValueList = ref(props.otherValueList);
+const selectedRow = ref(null);
 
 const minValue: number = extent(otherValueList.value, (element) => element?.distribution?.parameters?.minimum)[0];
 const maxValue: number = extent(otherValueList.value, (element) => element?.distribution?.parameters?.maximum)[1];
 
 const columns = ref([
 	{ field: 'name', header: 'Configuration name' },
+	{ field: 'description', header: 'Description' },
 	{ field: 'source', header: 'Source' },
 	{ field: 'range', header: 'Range' },
 	{ field: 'value', header: 'Value' },
@@ -178,13 +160,12 @@ const emit = defineEmits(['update-parameter', 'update-source', 'close-modal']);
 const customSource = ref('default');
 const numberType = ref(DistributionType.Constant);
 const customConstant = ref(0);
-const customMin = ref(0);
-const customMax = ref(1);
+const customMin = ref(undefined);
+const customMax = ref(undefined);
 
 const numberOptions = [DistributionType.Constant, DistributionType.Uniform];
 
 const selectedColumns = ref(columns.value);
-const customSelection = ref(false);
 
 interface OtherValueSelection {
 	type: DistributionType;
@@ -196,35 +177,44 @@ interface OtherValueSelection {
 
 const selection = ref<null | OtherValueSelection>(null);
 
-const onCustomSelectionChange = (val) => {
-	if (customSelection.value && !val?.name) {
-		selection.value =
-			numberType.value === DistributionType.Constant
-				? {
-						constant: customConstant.value,
-						source: customSource.value,
-						type: DistributionType.Constant
-					}
-				: {
-						min: customMin.value,
-						max: customMax.value,
-						source: customSource.value,
-						type: DistributionType.Uniform
-					};
-	} else {
-		selection.value =
-			val.distribution.type === DistributionType.Constant
-				? {
-						constant: val.distribution.parameters.value,
-						source: val.source,
-						type: val.distribution.type
-					}
-				: {
-						min: val.distribution.parameters.minimum,
-						max: val.distribution.parameters.maximum,
-						source: val.source,
-						type: val.distribution.type
-					};
+const onRowSelect = (event) => {
+	const val = event.data;
+	selectedRow.value = val;
+	selection.value =
+		val.distribution.type === DistributionType.Constant
+			? {
+					constant: val.distribution.parameters.value,
+					source: val.source,
+					type: val.distribution.type
+				}
+			: {
+					min: val.distribution.parameters.minimum,
+					max: val.distribution.parameters.maximum,
+					source: val.source,
+					type: val.distribution.type
+				};
+};
+
+const onCustomSectionClick = () => {
+	selectedRow.value = null;
+	selection.value =
+		numberType.value === DistributionType.Constant
+			? {
+					constant: customConstant.value,
+					source: customSource.value,
+					type: DistributionType.Constant
+				}
+			: {
+					min: customMin.value,
+					max: customMax.value,
+					source: customSource.value,
+					type: DistributionType.Uniform
+				};
+};
+
+const onCustomSelectionChange = () => {
+	if (!selectedRow.value) {
+		onCustomSectionClick();
 	}
 };
 
@@ -292,13 +282,55 @@ function applySelectedValue() {
 	color: var(--surface-900);
 }
 
-/* Change style for Primevue componment */
+/* Change style for Primevue component */
 :deep(td[role='cell'] > div.p-dropdown) {
-	height: 50px;
+	height: 2.5rem;
 	width: 100%;
 }
 
-.other-value-input {
-	margin-bottom: 0 !important;
+:deep(th) {
+	padding-left: var(--gap-4);
+}
+
+:deep(.p-datatable .p-datatable-tbody > tr) {
+	cursor: pointer;
+	& > td:first-child {
+		border-left: 4px solid var(--surface-300);
+	}
+}
+
+:deep(.p-datatable .p-datatable-tbody > tr.p-highlight),
+:deep(.p-datatable .p-datatable-tbody > tr.p-highlight:hover) {
+	background: var(--surface-highlight);
+	& > td:first-child {
+		border-left: 4px solid var(--primary-color);
+	}
+}
+
+.custom-input-section {
+	border-left: 4px solid var(--surface-300);
+	padding: var(--gap-3) var(--gap-4);
+	background: var(--surface-0);
+	height: 4rem;
+	cursor: pointer;
+	border-bottom: 1px solid var(--surface-border-light);
+}
+
+.custom-input-section:hover {
+	background: var(--surface-50);
+}
+
+.custom-input-section.custom-selected {
+	background: var(--surface-highlight);
+	border-left: 4px solid var(--primary-color);
+}
+.custom-input-section:deep(.tera-input) {
+	margin-bottom: 0;
+	& main input {
+		height: 1.85rem;
+	}
+}
+.custom-input-section:deep(.p-dropdown) {
+	height: 2.5rem;
 }
 </style>

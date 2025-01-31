@@ -1,6 +1,6 @@
 package software.uncharted.terarium.hmiserver.models.dataservice.modelparts.metadata;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -15,6 +15,7 @@ import software.uncharted.terarium.hmiserver.models.SupportAdditionalProperties;
 @EqualsAndHashCode(callSuper = true)
 @AMRSchemaType
 @Accessors(chain = true)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Variable extends SupportAdditionalProperties implements Serializable {
 
 	@Serial
@@ -25,9 +26,6 @@ public class Variable extends SupportAdditionalProperties implements Serializabl
 	private String name;
 
 	private List<VariableMetadata> metadata;
-
-	@JsonProperty("dkg_groundings")
-	private List<DKGConcept> dkgGroundings;
 
 	private List<DataColumn> column;
 
@@ -45,13 +43,6 @@ public class Variable extends SupportAdditionalProperties implements Serializabl
 			clone.metadata = new ArrayList<>();
 			for (final VariableMetadata metadata : this.metadata) {
 				clone.metadata.add(metadata.clone());
-			}
-		}
-
-		if (this.dkgGroundings != null) {
-			clone.dkgGroundings = new ArrayList<>();
-			for (final DKGConcept dkg : this.dkgGroundings) {
-				clone.dkgGroundings.add(dkg.clone());
 			}
 		}
 

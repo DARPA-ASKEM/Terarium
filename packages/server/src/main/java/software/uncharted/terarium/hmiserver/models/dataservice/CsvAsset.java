@@ -23,10 +23,6 @@ public class CsvAsset implements Serializable {
 	/** The csv data. Note that this may be incomplete if the dataset is too large. */
 	List<List<String>> csv;
 
-	/** Stats about the entire CSV file, not just the contents represented here */
-	@TSOptional
-	List<CsvColumnStats> stats;
-
 	/** Headers on this CSV file */
 	List<String> headers;
 

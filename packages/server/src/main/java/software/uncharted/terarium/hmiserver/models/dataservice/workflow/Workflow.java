@@ -31,7 +31,7 @@ public class Workflow extends TerariumAsset {
 
 	@Type(JsonType.class)
 	@Column(columnDefinition = "json")
-	private List<WorkflowNode<?>> nodes;
+	private List<WorkflowNode> nodes;
 
 	@Type(JsonType.class)
 	@Column(columnDefinition = "json")
@@ -40,6 +40,10 @@ public class Workflow extends TerariumAsset {
 	@Type(JsonType.class)
 	@Column(columnDefinition = "json")
 	private JsonNode scenario;
+
+	@Type(JsonType.class)
+	@Column(columnDefinition = "json")
+	private Map<UUID, WorkflowAnnotation> annotations;
 
 	@Override
 	public Workflow clone() {
@@ -57,8 +61,8 @@ public class Workflow extends TerariumAsset {
 		final Map<UUID, UUID> oldToNew = new HashMap<>();
 
 		clone.setNodes(new ArrayList<>());
-		for (final WorkflowNode<?> node : nodes) {
-			final WorkflowNode<?> clonedNode = node.clone(clone.getId());
+		for (final WorkflowNode node : nodes) {
+			final WorkflowNode clonedNode = node.clone(clone.getId());
 			oldToNew.put(node.getId(), clonedNode.getId());
 			clone.getNodes().add(clonedNode);
 		}
@@ -72,6 +76,7 @@ public class Workflow extends TerariumAsset {
 		}
 
 		clone.setScenario(this.getScenario());
+		clone.setAnnotations(this.getAnnotations());
 		return clone;
 	}
 }

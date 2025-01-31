@@ -2,8 +2,7 @@ import type { DocumentExtraction } from '@/types/Types';
 import { AssetBlock, Operation, WorkflowOperationTypes } from '@/types/workflow';
 import createModelFromEquations from '@assets/svg/operator-images/create-model-from-equation.svg';
 
-const DOCUMENTATION_URL =
-	'https://github.com/DARPA-ASKEM/model-service/blob/07ae21cae2d5465f9ac5b5bbbe6c7b28b7259f04/src/ModelService.jl#L54';
+const DOCUMENTATION_URL = 'https://documentation.terarium.ai/modeling/create-model-from-equations/';
 
 export interface EquationBlock {
 	text: string;

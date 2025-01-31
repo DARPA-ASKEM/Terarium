@@ -1,7 +1,7 @@
 package software.uncharted.terarium.hmiserver.service.data;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,7 +30,7 @@ import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
 
 @Service
 @Slf4j
-public class SimulationService extends TerariumAssetServiceWithoutSearch<Simulation, SimulationRepository> {
+public class SimulationService extends TerariumAssetService<Simulation, SimulationRepository> {
 
 	private final SimulationUpdateRepository simulationUpdateRepository;
 	private final DatasetService datasetService;
@@ -93,6 +93,8 @@ public class SimulationService extends TerariumAssetServiceWithoutSearch<Simulat
 		final String datasetName,
 		final UUID projectId,
 		final boolean addToProject,
+		final UUID modelConfigurationId,
+		final UUID interventionPolicyId,
 		final Schema.Permission permission
 	) {
 		try {
@@ -109,10 +111,24 @@ public class SimulationService extends TerariumAssetServiceWithoutSearch<Simulat
 			Dataset dataset = datasetService.createAsset(new Dataset(), projectId, permission);
 			dataset.setName(datasetName);
 			dataset.setDescription(sim.get().getDescription());
-			dataset.setMetadata(objectMapper.convertValue(Map.of("simulationId", simId.toString()), JsonNode.class));
 			dataset.setFileNames(sim.get().getResultFiles());
 			dataset.setDataSourceDate(sim.get().getCompletedTime());
 			dataset.setColumns(new ArrayList<>());
+
+			// Set the metadata
+			final ObjectNode metadata = objectMapper.createObjectNode();
+			final ObjectNode simulationAttributes = objectMapper.createObjectNode();
+
+			metadata.put("simulationId", simId.toString());
+			if (modelConfigurationId != null) {
+				simulationAttributes.put("modelConfigurationId", modelConfigurationId.toString());
+			}
+			if (interventionPolicyId != null) {
+				simulationAttributes.put("interventionPolicyId", interventionPolicyId.toString());
+			}
+			metadata.set("simulationAttributes", simulationAttributes);
+
+			dataset.setMetadata(metadata);
 
 			// Attach the user to the dataset
 			if (sim.get().getUserId() != null) {

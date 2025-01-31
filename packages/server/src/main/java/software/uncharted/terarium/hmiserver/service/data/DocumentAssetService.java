@@ -6,63 +6,32 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import software.uncharted.terarium.hmiserver.configuration.Config;
-import software.uncharted.terarium.hmiserver.configuration.ElasticsearchConfiguration;
 import software.uncharted.terarium.hmiserver.models.dataservice.document.DocumentAsset;
 import software.uncharted.terarium.hmiserver.repository.data.DocumentRepository;
-import software.uncharted.terarium.hmiserver.service.elasticsearch.ElasticsearchService;
-import software.uncharted.terarium.hmiserver.service.gollm.EmbeddingService;
 import software.uncharted.terarium.hmiserver.service.s3.S3ClientService;
 import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
 
 @Slf4j
 @Service
-public class DocumentAssetService extends TerariumAssetServiceWithSearch<DocumentAsset, DocumentRepository> {
+public class DocumentAssetService extends TerariumAssetService<DocumentAsset, DocumentRepository> {
 
 	public DocumentAssetService(
 		final ObjectMapper objectMapper,
 		final Config config,
-		final ElasticsearchConfiguration elasticConfig,
-		final ElasticsearchService elasticService,
-		final EmbeddingService embeddingService,
-		final Environment env,
 		final ProjectService projectService,
 		final ProjectAssetService projectAssetService,
-		final S3ClientService s3ClientService,
-		final DocumentRepository repository
+		final DocumentRepository repository,
+		final S3ClientService s3ClientService
 	) {
-		super(
-			objectMapper,
-			config,
-			elasticConfig,
-			elasticService,
-			embeddingService,
-			env,
-			projectService,
-			projectAssetService,
-			s3ClientService,
-			repository,
-			DocumentAsset.class
-		);
+		super(objectMapper, config, projectService, projectAssetService, repository, s3ClientService, DocumentAsset.class);
 	}
 
 	@Override
 	@Observed(name = "function_profile")
 	protected String getAssetPath() {
 		return config.getDocumentPath();
-	}
-
-	@Override
-	@Observed(name = "function_profile")
-	protected String getAssetIndex() {
-		return elasticConfig.getDocumentIndex();
-	}
-
-	@Override
-	public String getAssetAlias() {
-		return elasticConfig.getDocumentAlias();
 	}
 
 	@Override
@@ -97,10 +66,6 @@ public class DocumentAssetService extends TerariumAssetServiceWithSearch<Documen
 		if (updatedOptional.isEmpty()) {
 			return Optional.empty();
 		}
-
-		final DocumentAsset updated = updatedOptional.get();
-
-		generateAndUpsertEmbeddings(updated);
 
 		return updatedOptional;
 	}

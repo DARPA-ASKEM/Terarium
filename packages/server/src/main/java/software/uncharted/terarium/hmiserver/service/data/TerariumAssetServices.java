@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import software.uncharted.terarium.hmiserver.models.TerariumAsset;
 import software.uncharted.terarium.hmiserver.models.dataservice.Artifact;
@@ -15,6 +16,7 @@ import software.uncharted.terarium.hmiserver.models.dataservice.document.Documen
 import software.uncharted.terarium.hmiserver.models.dataservice.model.Model;
 import software.uncharted.terarium.hmiserver.models.dataservice.model.configurations.ModelConfiguration;
 import software.uncharted.terarium.hmiserver.models.dataservice.notebooksession.NotebookSession;
+import software.uncharted.terarium.hmiserver.models.dataservice.project.Project;
 import software.uncharted.terarium.hmiserver.models.dataservice.simulation.Simulation;
 import software.uncharted.terarium.hmiserver.models.dataservice.workflow.Workflow;
 import software.uncharted.terarium.hmiserver.models.simulationservice.interventions.InterventionPolicy;
@@ -23,6 +25,7 @@ import software.uncharted.terarium.hmiserver.utils.rebac.Schema.Permission;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TerariumAssetServices {
 
 	private final ArtifactService artifactService;
@@ -107,5 +110,44 @@ public class TerariumAssetServices {
 			case PROJECT -> projectService.getProject(assetId).orElse(null);
 			default -> null;
 		};
+	}
+
+	public static AssetType getAssetType(final TerariumAsset asset) {
+		if (asset instanceof Artifact) {
+			return AssetType.ARTIFACT;
+		}
+		if (asset instanceof Code) {
+			return AssetType.CODE;
+		}
+		if (asset instanceof Dataset) {
+			return AssetType.DATASET;
+		}
+		if (asset instanceof DocumentAsset) {
+			return AssetType.DOCUMENT;
+		}
+		if (asset instanceof InterventionPolicy) {
+			return AssetType.INTERVENTION_POLICY;
+		}
+		if (asset instanceof Model) {
+			return AssetType.MODEL;
+		}
+		if (asset instanceof ModelConfiguration) {
+			return AssetType.MODEL_CONFIGURATION;
+		}
+		if (asset instanceof NotebookSession) {
+			return AssetType.NOTEBOOK_SESSION;
+		}
+		if (asset instanceof Simulation) {
+			return AssetType.SIMULATION;
+		}
+		if (asset instanceof Workflow) {
+			return AssetType.WORKFLOW;
+		}
+		if (asset instanceof Project) {
+			return AssetType.PROJECT;
+		}
+
+		log.warn("Unknown asset type: {}", asset.getClass().getName());
+		return null;
 	}
 }

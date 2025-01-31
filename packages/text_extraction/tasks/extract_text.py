@@ -1,9 +1,11 @@
-import sys
+import fitz
 import os
-import traceback
 import subprocess
-import PyPDF2
+import sys
+import traceback
+
 from taskrunner import TaskRunnerInterface
+
 
 def cleanup():
     pass
@@ -32,11 +34,10 @@ def read_file_to_string(filename):
 
 
 def extract_text_from_pdf(filename):
-    reader = PyPDF2.PdfReader(filename)
-    text = ""
+    reader = fitz.open(filename) # open a document
     text = []
-    for page in reader.pages:
-        text.append(page.extract_text())
+    for page in reader:
+        text.append(page.get_text())
     return text
 
 

@@ -1,6 +1,6 @@
 <template>
 	<div class="chart-settings-quantiles">
-		<h5>Data Format</h5>
+		<h5>Data format</h5>
 		<div>
 			<RadioButton
 				:model-value="radioButtonValue"

@@ -2,6 +2,7 @@ package software.uncharted.terarium.hmiserver.models.dataservice.workflow;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.Data;
@@ -14,7 +15,7 @@ import software.uncharted.terarium.hmiserver.models.SupportAdditionalProperties;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Accessors(chain = true)
-public class WorkflowNode<T> extends SupportAdditionalProperties implements Serializable {
+public class WorkflowNode extends SupportAdditionalProperties implements Serializable {
 
 	private UUID id;
 	private UUID workflowId;
@@ -43,18 +44,20 @@ public class WorkflowNode<T> extends SupportAdditionalProperties implements Seri
 	private Double height;
 
 	// State
-	private T state;
+	private JsonNode state;
 
 	@TSOptional
 	private UUID active;
 
-	private List<JsonNode> inputs;
-	private List<JsonNode> outputs;
+	private List<InputPort> inputs;
+	private List<OutputPort> outputs;
 
 	private String status;
 
-	public WorkflowNode<?> clone(final UUID workflowId) {
-		final WorkflowNode<?> clone = (WorkflowNode<?>) super.clone();
+	private Boolean uniqueInputs;
+
+	public WorkflowNode clone(final UUID workflowId) {
+		final WorkflowNode clone = (WorkflowNode) super.clone();
 		clone.setId(UUID.randomUUID());
 		clone.setWorkflowId(workflowId);
 		return clone;

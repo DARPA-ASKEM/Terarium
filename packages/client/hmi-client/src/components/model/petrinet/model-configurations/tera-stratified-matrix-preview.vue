@@ -25,7 +25,7 @@
 				</template>
 			</div>
 		</section>
-		<p>Click to open</p>
+		<p class="ml-auto">Click to open</p>
 	</section>
 </template>
 

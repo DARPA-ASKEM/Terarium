@@ -62,8 +62,6 @@ services:
       TGPT_APP_URL: ""
       TGPT_TOKEN: ""
       TGPT_WS_URL: ""
-      XDD_API-ES-KEY: ""
-      XDD_API-KEY: ""
     depends_on:
       postgres:
         condition: service_healthy

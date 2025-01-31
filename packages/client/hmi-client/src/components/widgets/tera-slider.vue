@@ -3,15 +3,15 @@
 		:class="`slider ${isOpen ? 'open' : 'closed'} ${direction}`"
 		:style="{ width: isOpen ? contentWidth : tabWidth, minWidth: minTabWidth }"
 	>
-		<div class="slider-content-container" :style="{ width: isOpen ? contentWidth : 0 }">
-			<section class="slider-content" :style="sidePanelContentStyle">
+		<div class="container" :style="[contentStyle, { width: isOpen ? contentWidth : '0%' }]">
+			<section class="content">
 				<slot name="content" />
 			</section>
 			<footer>
 				<slot name="footerButtons" />
 			</footer>
 		</div>
-		<section class="slider-tab" :style="sidePanelTabStyle">
+		<section class="tab" :style="tabStyle">
 			<slot name="tab"></slot>
 		</section>
 	</aside>
@@ -54,9 +54,8 @@ const directionMap = {
 	}
 };
 
-const sidePanelContentStyle = computed(() => (thisSlider?.slots.footerButtons ? 'height: calc(100% - 5rem);' : ''));
-
-const sidePanelTabStyle = computed(() => `width: ${props.tabWidth}; ${directionMap[props.direction].tab()}`);
+const contentStyle = computed(() => (thisSlider?.slots.footerButtons ? 'height: calc(100% - 5rem);' : ''));
+const tabStyle = computed(() => `width: ${props.tabWidth}; ${directionMap[props.direction].tab()}`);
 </script>
 
 <style scoped>
@@ -64,8 +63,8 @@ aside {
 	position: relative;
 }
 .slider,
-.slider-content,
-.slider-tab,
+.content,
+.tab,
 footer {
 	transition: all 0.2s ease-out;
 }
@@ -75,36 +74,32 @@ footer {
 	z-index: 0;
 }
 
-.slider-content-container {
+.container {
 	position: absolute;
 	height: 100%;
 	transition: width 0.2s ease-out;
 }
 
-.slider-tab {
+.tab {
 	position: relative;
 	height: 100%;
 	background-color: var(--surface-section);
 	z-index: 1;
 }
 
-.slider.open .slider-tab,
-.slider.closed .slider-content,
+.slider.open .tab,
+.slider.closed .content,
 .slider.closed footer {
 	visibility: hidden;
 	opacity: 0;
 }
 
-.slider-content {
+.content {
 	background-color: var(--surface-section);
 	position: relative;
 	width: 100%;
 	height: 100%;
 	overflow-y: auto;
-}
-
-footer:empty {
-	display: none;
 }
 
 footer {
@@ -118,5 +113,9 @@ footer {
 	display: flex;
 	align-items: center;
 	justify-content: space-evenly;
+
+	&:empty {
+		display: none;
+	}
 }
 </style>

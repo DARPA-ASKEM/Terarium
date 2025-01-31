@@ -2,7 +2,7 @@ import type { Operation, BaseState } from '@/types/workflow';
 import { WorkflowOperationTypes } from '@/types/workflow';
 import stratifyModel from '@assets/svg/operator-images/stratify-model.svg';
 
-const DOCUMENTATION_URL = 'https://github.com/gyorilab/mira/blob/main/notebooks/viz_strat_petri.ipynb';
+const DOCUMENTATION_URL = 'https://documentation.terarium.ai/modeling/stratify-model/';
 
 export interface StratifyGroup {
 	borderColour: string;

@@ -11,7 +11,8 @@
 				v-if="pdfData.length"
 				v-model:is-open="isDocViewerOpen"
 				header="Document viewer"
-				content-width="700px"
+				:content-width="isSidebarOpen ? 'calc(60vw - 320px)' : '60vw'"
+				:documentViewer="true"
 			>
 				<template #content>
 					<tera-drilldown-section :is-loading="isFetchingPDF">
@@ -107,12 +108,11 @@
 						v-model="newDescription"
 					/>
 				</AccordionTab>
-				<AccordionTab v-if="model?.semantics?.ode?.time" header="Context">
-					<div class="flex flex-column gap-2">
-						<h5>Temporal Context</h5>
+				<AccordionTab v-if="model?.semantics?.ode?.time" header="Temporal context">
+					<div class="flex flex-column gap-2 mb-3">
 						<span>Assign a date to timestep 0 (optional)</span>
 						<Calendar
-							class="max-w-30rem"
+							class="max-w-20rem"
 							:model-value="
 								knobs.transientModelConfig.temporalContext ? new Date(knobs.transientModelConfig.temporalContext) : null
 							"
@@ -131,7 +131,7 @@
 				</AccordionTab>
 			</Accordion>
 			<template v-if="model">
-				<Message v-if="isModelMissingMetadata(model)" class="m-2">
+				<Message v-if="isModelMissingMetadata(model)" class="m-2 info-message">
 					Some metadata is missing from these values. This information can be added manually to the attached model.
 				</Message>
 				<template v-if="!isEmpty(knobs.transientModelConfig)">
@@ -158,7 +158,6 @@
 					<Accordion :active-index="observableActiveIndicies" v-if="!isEmpty(observablesList)">
 						<AccordionTab header="Observables">
 							<tera-model-part
-								class="pl-4"
 								:part-type="PartType.OBSERVABLE"
 								:items="observablesList"
 								:feature-config="{ isPreview: true }"
@@ -226,7 +225,7 @@
 <script setup lang="ts">
 import '@/ace-config';
 import { ComponentPublicInstance, computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import { cloneDeep, debounce, isEmpty, orderBy, omit } from 'lodash';
+import { cloneDeep, debounce, difference, isEmpty, orderBy, omit } from 'lodash';
 import Accordion from 'primevue/accordion';
 import AccordionTab from 'primevue/accordiontab';
 import Button from 'primevue/button';
@@ -315,7 +314,6 @@ const currentActiveIndexes = ref([0, 1, 2]);
 const observableActiveIndicies = ref([0]);
 const pdfData = ref<{ document: any; data: string; isPdf: boolean; name: string }[]>([]);
 const pdfPanelRef = ref();
-const pdfViewer = computed(() => pdfPanelRef.value?.pdfRef);
 
 const isSidebarOpen = ref(true);
 const isEditingDescription = ref(false);
@@ -461,11 +459,17 @@ const extractConfigurationsFromInputs = async () => {
 		return;
 	}
 
-	if (documentIds.value) {
+	// We only want to run extractions on documents and datasets that have not previously been run
+	const configExtractionDocumentIds = modelConfigurations.value
+		.map((config) => config.extractionDocumentId)
+		.filter(Boolean);
+
+	const newDocumentIds = difference(documentIds.value, configExtractionDocumentIds);
+	if (!isEmpty(newDocumentIds)) {
 		const promiseList = [] as Promise<TaskResponse | null>[];
-		documentIds.value.forEach((documentId) => {
+		newDocumentIds.forEach((documentId) => {
 			promiseList.push(
-				configureModelFromDocument(documentId, model.value?.id as string, props.node.workflowId, props.node.id)
+				configureModelFromDocument(`${documentId}`, model.value?.id as string, props.node.workflowId, props.node.id)
 			);
 		});
 		const responsesRaw = await Promise.all(promiseList);
@@ -476,12 +480,19 @@ const extractConfigurationsFromInputs = async () => {
 		});
 	}
 
-	if (datasetIds.value) {
+	const newDatasetIds = difference(datasetIds.value, configExtractionDocumentIds);
+	if (!isEmpty(newDatasetIds)) {
 		const matrixStr = generateModelDatasetConfigurationContext(mmt.value, mmtParams.value);
 		const promiseList = [] as Promise<TaskResponse | null>[];
-		datasetIds.value.forEach((datasetId) => {
+		newDatasetIds.forEach((datasetId) => {
 			promiseList.push(
-				configureModelFromDataset(model.value?.id as string, datasetId, matrixStr, props.node.workflowId, props.node.id)
+				configureModelFromDataset(
+					model.value?.id as string,
+					`${datasetId}`,
+					matrixStr,
+					props.node.workflowId,
+					props.node.id
+				)
 			);
 		});
 		const responsesRaw = await Promise.all(promiseList);
@@ -692,16 +703,6 @@ const initialize = async (overwriteWithState: boolean = false) => {
 };
 
 const onSelectConfiguration = async (config: ModelConfiguration) => {
-	let tabIndex = 0;
-	if (pdfPanelRef.value && config.extractionDocumentId) {
-		tabIndex = await pdfPanelRef.value.selectPdf(config.extractionDocumentId);
-		await nextTick();
-	}
-
-	if (pdfViewer.value && config.extractionPage) {
-		pdfViewer.value[tabIndex].goToPage(config.extractionPage);
-	}
-
 	const { transientModelConfig } = knobs.value;
 	// If no changes were made switch right away
 	if (isModelConfigsEqual(originalConfig, transientModelConfig)) {
@@ -995,5 +996,8 @@ button.start-edit {
 			overflow: hidden;
 		}
 	}
+}
+.info-message {
+	border-color: var(--surface-border);
 }
 </style>

@@ -7,17 +7,26 @@ import { operation as SimulateCiemssOp } from '@/components/workflow/ops/simulat
 import { operation as CompareDatasetOp } from '@/components/workflow/ops/compare-datasets/mod';
 import { operation as InterventionOp } from '@/components/workflow/ops/intervention-policy/mod';
 import { OperatorNodeSize } from '@/services/workflow';
-import {
-	createModelConfiguration,
-	getModelConfigurationById,
-	setParameterDistribution
-} from '@/services/model-configurations';
-import { ChartSetting, ChartSettingType } from '@/types/common';
+import { createModelConfiguration, getModelConfigurationById, getParameter } from '@/services/model-configurations';
+import { ChartSetting, ChartSettingType, CiemssPresetTypes } from '@/types/common';
 import { updateChartSettingsBySelectedVariables } from '@/services/chart-settings';
-import { AssetType, ParameterSemantic } from '@/types/Types';
-import { getInterventionPolicyById } from '@/services/intervention-policy';
+import { AssetType, InterventionPolicy, ParameterSemantic } from '@/types/Types';
+import {
+	blankIntervention,
+	createInterventionPolicy,
+	flattenInterventionData,
+	getInterventionPolicyById
+} from '@/services/intervention-policy';
 import { useProjects } from '@/composables/project';
-import { getMeanCompareDatasetVariables, switchToUniformDistribution } from '../scenario-template-utils';
+import { DistributionType } from '@/services/distribution';
+import {
+	cartesianProduct,
+	createDefaultForecastSettings,
+	runSimulations,
+	switchToUniformDistribution
+} from '../scenario-template-utils';
+import { CompareValue } from '../../ops/compare-datasets/compare-datasets-operation';
+import { isInterventionPolicyBlank } from '../../ops/intervention-policy/intervention-policy-operation';
 
 /*
  * Value of information scenario
@@ -26,30 +35,30 @@ import { getMeanCompareDatasetVariables, switchToUniformDistribution } from '../
 	then simulate into the near future with different intervention policies.
 
   Users can input a model, a model configuration, a set of interventions,
-  and a set of parameters. For each parameter, a min and max value will be specified,
-  resulting in the creation of new model configurations for each parameter with that
-	parameter set to a uniform.
+  and a set of parameters. For each parameter, a low and high value will be specified,
+  resulting in the creation of new model configurations based on the cartesion product
+	of the parameter extrema.
 
 	Example:
-	2 interventions, 2 parameters
+	1 intervention, 2 parameters
   Model Node
   |
-  +-- Model Config Node (Uniform distrubiton for Param 1)
+  +-- Model Config Node (Low Param 1, Low Param 2)
   |     |
   |     +-- Simulate Node (Intervention 1)
   |
-  +-- Model Config Node (Uniform distrubiton for Param 2)
+  +-- Model Config Node (High Param 1, Low Param 2)
   |     |
   |     +-- Simulate Node (Intervention 1)
   |
-  +-- Model Config Node (Uniform distrubiton for Param 1)
+  +-- Model Config Node (Low Param 1, High Param 2)
   |     |
-  |     +-- Simulate Node (Intervention 2)
+  |     +-- Simulate Node (Intervention 1)
   |
-  +-- Model Config Node (Uniform distrubiton for Param 2)
+  +-- Model Config Node (High Param 1, High Param 2)
         |
-        +-- Simulate Node (Intervention 2)
- */
+        +-- Simulate Node (Intervention 1)
+*/
 export class ValueOfInformationScenario extends BaseScenario {
 	public static templateId = 'value-of-information-scenario';
 
@@ -61,7 +70,9 @@ export class ValueOfInformationScenario extends BaseScenario {
 
 	interventionSpecs: { id: string }[];
 
-	simulateSpec: { ids: string[] };
+	newInterventionSpecs: { id: string; name: string }[];
+
+	simulateSpec: { ids: string[]; endTime: number; preset: CiemssPresetTypes; runSimulationsAutomatically: boolean };
 
 	parameters: (ParameterSemantic | null)[];
 
@@ -75,9 +86,13 @@ export class ValueOfInformationScenario extends BaseScenario {
 			id: ''
 		};
 		this.simulateSpec = {
-			ids: []
+			ids: [],
+			preset: CiemssPresetTypes.Fast,
+			endTime: 100,
+			runSimulationsAutomatically: false
 		};
 		this.interventionSpecs = [{ id: '' }];
+		this.newInterventionSpecs = [];
 		this.parameters = [null];
 	}
 
@@ -122,6 +137,26 @@ export class ValueOfInformationScenario extends BaseScenario {
 		this.parameters[index] = parameter;
 	}
 
+	setNewInterventionSpec(id: string, name: string) {
+		this.newInterventionSpecs.push({ id, name });
+	}
+
+	setPreset(preset: CiemssPresetTypes) {
+		this.simulateSpec.preset = preset;
+	}
+
+	setEndTime(endTime: number) {
+		this.simulateSpec.endTime = endTime;
+	}
+
+	setRunSimulationsAutomatically(runSimulationsAutomatically: boolean) {
+		this.simulateSpec.runSimulationsAutomatically = runSimulationsAutomatically;
+	}
+
+	getDefaultForecastSettings() {
+		return createDefaultForecastSettings(this.simulateSpec.endTime, this.simulateSpec.preset);
+	}
+
 	toJSON() {
 		return {
 			templateId: ValueOfInformationScenario.templateId,
@@ -149,6 +184,8 @@ export class ValueOfInformationScenario extends BaseScenario {
 		wf.setWorkflowName(this.workflowName);
 		wf.setWorkflowScenario(this.toJSON());
 
+		const fetchedInterventionPolicies: InterventionPolicy[] = [];
+
 		// 1. Add model and compare dataset nodes
 		const modelNode = wf.addNode(
 			ModelOp,
@@ -167,6 +204,34 @@ export class ValueOfInformationScenario extends BaseScenario {
 			}
 		});
 
+		const modelConfig = await getModelConfigurationById(this.modelConfigSpec.id);
+
+		const baseModelConfigNode = wf.addNode(
+			ModelConfigOp,
+			{ x: 0, y: 0 },
+			{
+				size: OperatorNodeSize.medium
+			}
+		);
+
+		const baseSimulateNode = wf.addNode(
+			SimulateCiemssOp,
+			{ x: 0, y: 0 },
+			{
+				size: OperatorNodeSize.medium
+			}
+		);
+
+		wf.updateNode(baseModelConfigNode, {
+			state: {
+				transientModelConfig: modelConfig
+			},
+			output: {
+				value: [modelConfig.id],
+				state: _.omit(baseModelConfigNode.state, ['transientModelConfig'])
+			}
+		});
+
 		const compareDatasetNode = wf.addNode(
 			CompareDatasetOp,
 			{ x: 0, y: 0 },
@@ -175,17 +240,42 @@ export class ValueOfInformationScenario extends BaseScenario {
 			}
 		);
 
-		// add input ports for each simulation to the dataset transformer, this will be a matrix of intervention x parameter
-		for (let i = 0; i < this.interventionSpecs.length * this.parameters.length; i++) {
+		wf.addEdge(modelNode.id, modelNode.outputs[0].id, baseModelConfigNode.id, baseModelConfigNode.inputs[0].id, [
+			{ x: 0, y: 0 },
+			{ x: 0, y: 0 }
+		]);
+
+		wf.addEdge(
+			baseModelConfigNode.id,
+			baseModelConfigNode.outputs[0].id,
+			baseSimulateNode.id,
+			baseSimulateNode.inputs[0].id,
+			[
+				{ x: 0, y: 0 },
+				{ x: 0, y: 0 }
+			]
+		);
+
+		wf.addEdge(
+			baseSimulateNode.id,
+			baseSimulateNode.outputs[0].id,
+			compareDatasetNode.id,
+			compareDatasetNode.inputs[0].id,
+			[
+				{ x: 0, y: 0 },
+				{ x: 0, y: 0 }
+			]
+		);
+
+		// add input ports for each simulation to the dataset transformer, this will be a matrix of intervention x parameter low and high
+		for (let i = 0; i < (this.interventionSpecs.length + 1) * 2 ** this.parameters.length; i++) {
 			workflowService.appendInputPort(compareDatasetNode, {
 				type: 'datasetId|simulationId',
 				label: 'Dataset or Simulation'
 			});
 		}
 
-		let compareDatasetIndex = 0;
-
-		const modelConfig = await getModelConfigurationById(this.modelConfigSpec.id);
+		let compareDatasetIndex = 1;
 
 		// chart settings for simulate node
 		let simulateChartSettings: ChartSetting[] = [];
@@ -195,23 +285,56 @@ export class ValueOfInformationScenario extends BaseScenario {
 			this.simulateSpec.ids
 		);
 
+		wf.updateNode(baseSimulateNode, {
+			state: {
+				chartSettings: simulateChartSettings,
+				...this.getDefaultForecastSettings()
+			}
+		});
+
 		let compareDatasetChartSettings: ChartSetting[] = [];
 		compareDatasetChartSettings = updateChartSettingsBySelectedVariables(
 			compareDatasetChartSettings,
 			ChartSettingType.VARIABLE,
-			getMeanCompareDatasetVariables(this.simulateSpec.ids, modelConfig)
+			this.simulateSpec.ids
 		);
 
 		wf.updateNode(compareDatasetNode, {
 			state: {
-				chartSettings: compareDatasetChartSettings
+				chartSettings: compareDatasetChartSettings,
+				selectedCompareOption: CompareValue.RANK
 			}
 		});
 
-		// 2. create model config nodes for each paramter and attach them to the model node
-		const modelConfigPromises = this.parameters.map(async (parameter) => {
-			if (!parameter) return null;
+		// 2. create a single model config node with all parameters
+		// Generate Cartesian product of parameter extrema
+		const parameterExtrema = this.parameters.map((parameter) => [
+			{ id: parameter!.referenceId, label: 'Low', value: parameter!.distribution.parameters.minimum },
+			{ id: parameter!.referenceId, label: 'High', value: parameter!.distribution.parameters.maximum }
+		]);
+
+		const cartesianConfigs = cartesianProduct(parameterExtrema);
+
+		const modelConfigPromises = cartesianConfigs.map(async (config) => {
 			const clonedModelConfig = _.cloneDeep(modelConfig);
+
+			config.forEach((param) => {
+				const foundParameter = getParameter(clonedModelConfig, param.id);
+				if (foundParameter) {
+					foundParameter.distribution.type = DistributionType.Constant;
+					foundParameter.distribution.parameters = { value: param.value };
+				}
+			});
+
+			clonedModelConfig.name = config.map((param) => `${param.id}${param.label}`).join('_');
+			clonedModelConfig.description = `This is a configuration created from "${modelConfig.name}" with extreme values for the parameters: ${config.map((param) => `${param.id}: ${param.value}`).join(', ')} using the value of information scenario template.`;
+
+			const newModelConfig = await createModelConfiguration(clonedModelConfig);
+			await useProjects().addAsset(
+				AssetType.ModelConfiguration,
+				newModelConfig.id,
+				useProjects().activeProject.value?.id
+			);
 
 			const modelConfigNode = wf.addNode(
 				ModelConfigOp,
@@ -226,16 +349,6 @@ export class ValueOfInformationScenario extends BaseScenario {
 				{ x: 0, y: 0 }
 			]);
 
-			setParameterDistribution(clonedModelConfig, parameter.referenceId, parameter.distribution);
-
-			clonedModelConfig.name = `${modelConfig.name}_${parameter.referenceId}`;
-			const newModelConfig = await createModelConfiguration(clonedModelConfig);
-			await useProjects().addAsset(
-				AssetType.ModelConfiguration,
-				newModelConfig.id,
-				useProjects().activeProject.value?.id
-			);
-
 			wf.updateNode(modelConfigNode, {
 				state: {
 					transientModelConfig: newModelConfig
@@ -249,40 +362,105 @@ export class ValueOfInformationScenario extends BaseScenario {
 			return modelConfigNode;
 		});
 
-		// Wait for all modelConfigPromises to resolve and filter non null responses
-		const modelConfigNodes = await Promise.all(modelConfigPromises);
+		// Wait for all modelConfigPromises to resolve and flatten them
+		const modelConfigNodes = (await Promise.all(modelConfigPromises)).flat();
 
 		// 3. Add intervention nodes for each intervention and attach them to the model node
-		const interventionPromises = this.interventionSpecs.map(async (interventionSpec) => {
-			const interventionPolicy = await getInterventionPolicyById(interventionSpec.id);
+		const interventionPromises = this.interventionSpecs
+			.filter((spec) => !!spec.id)
+			.map(async (interventionSpec) => {
+				let interventionPolicy: InterventionPolicy | null = await getInterventionPolicyById(interventionSpec.id);
 
-			const interventionNode = wf.addNode(
-				InterventionOp,
+				if (!interventionPolicy) {
+					// create new intervention if in the new policy list
+					interventionPolicy = await createInterventionPolicy(
+						{
+							name:
+								this.newInterventionSpecs.find((newInterventionSpec) => newInterventionSpec.id === interventionSpec.id)
+									?.name ?? 'New policy',
+							description: 'This intervention policy was created using the value of information scenario template.',
+							modelId: this.modelSpec.id,
+							interventions: [blankIntervention]
+						},
+						true
+					);
+
+					await useProjects().addAsset(
+						AssetType.InterventionPolicy,
+						interventionPolicy!.id,
+						useProjects().activeProject.value?.id
+					);
+				}
+
+				fetchedInterventionPolicies.push(interventionPolicy!);
+
+				const interventionNode = wf.addNode(
+					InterventionOp,
+					{ x: 0, y: 0 },
+					{
+						size: OperatorNodeSize.medium
+					}
+				);
+
+				wf.addEdge(modelNode.id, modelNode.outputs[0].id, interventionNode.id, interventionNode.inputs[0].id, [
+					{ x: 0, y: 0 },
+					{ x: 0, y: 0 }
+				]);
+
+				wf.updateNode(interventionNode, {
+					state: {
+						interventionPolicy
+					},
+					output: {
+						value: [interventionPolicy!.id],
+						state: interventionNode.state
+					}
+				});
+
+				return interventionNode;
+			});
+
+		// Wait for all interventionPromises to resolve
+		const interventionNodes = await Promise.all(interventionPromises);
+
+		// 4. Add simulate nodes for each model config and intervention and attach them to the model config and intervention nodes
+		// each intervention node will be connected to a simulate node along with each model config node
+		modelConfigNodes.forEach((modelConfigNode) => {
+			// For each model config node, we want to connect it to a simulate node, even if interventions aren't present
+			const simulateNode = wf.addNode(
+				SimulateCiemssOp,
 				{ x: 0, y: 0 },
 				{
 					size: OperatorNodeSize.medium
 				}
 			);
 
-			wf.addEdge(modelNode.id, modelNode.outputs[0].id, interventionNode.id, interventionNode.inputs[0].id, [
+			wf.updateNode(simulateNode, {
+				state: {
+					chartSettings: simulateChartSettings,
+					...this.getDefaultForecastSettings()
+				}
+			});
+
+			wf.addEdge(modelConfigNode.id, modelConfigNode.outputs[0].id, simulateNode.id, simulateNode.inputs[0].id, [
 				{ x: 0, y: 0 },
 				{ x: 0, y: 0 }
 			]);
 
-			wf.updateNode(interventionNode, {
-				state: {
-					interventionPolicy
-				},
-				output: {
-					value: [interventionPolicy.id],
-					state: interventionNode.state
+			interventionNodes.forEach((interventionNode) => {
+				const interventionPolicy = fetchedInterventionPolicies.find(
+					(policy) => policy.id === interventionNode.outputs[0].value?.[0]
+				);
+				let chartSettingsClone = _.cloneDeep(simulateChartSettings);
+				// apply intervention chart settings if the intervention policy is not blank
+				if (!isInterventionPolicyBlank(interventionPolicy!)) {
+					chartSettingsClone = updateChartSettingsBySelectedVariables(
+						chartSettingsClone,
+						ChartSettingType.INTERVENTION,
+						Object.keys(_.groupBy(flattenInterventionData(interventionPolicy?.interventions ?? []), 'appliedTo'))
+					);
 				}
-			});
-
-			// each intervention node will be connected to a simulate node along with each model config node
-			modelConfigNodes.forEach((modelConfigNode) => {
-				if (!modelConfigNode) return;
-				const simulateNode = wf.addNode(
+				const additionalSimNode = wf.addNode(
 					SimulateCiemssOp,
 					{ x: 0, y: 0 },
 					{
@@ -290,25 +468,36 @@ export class ValueOfInformationScenario extends BaseScenario {
 					}
 				);
 
-				wf.updateNode(simulateNode, {
+				wf.updateNode(additionalSimNode, {
 					state: {
-						chartSettings: simulateChartSettings
+						chartSettings: chartSettingsClone,
+						...this.getDefaultForecastSettings()
 					}
 				});
 
-				wf.addEdge(modelConfigNode.id, modelConfigNode.outputs[0].id, simulateNode.id, simulateNode.inputs[0].id, [
-					{ x: 0, y: 0 },
-					{ x: 0, y: 0 }
-				]);
-
-				wf.addEdge(interventionNode.id, interventionNode.outputs[0].id, simulateNode.id, simulateNode.inputs[1].id, [
-					{ x: 0, y: 0 },
-					{ x: 0, y: 0 }
-				]);
-
 				wf.addEdge(
-					simulateNode.id,
-					simulateNode.outputs[0].id,
+					modelConfigNode.id,
+					modelConfigNode.outputs[0].id,
+					additionalSimNode.id,
+					additionalSimNode.inputs[0].id,
+					[
+						{ x: 0, y: 0 },
+						{ x: 0, y: 0 }
+					]
+				);
+				wf.addEdge(
+					interventionNode.id,
+					interventionNode.outputs[0].id,
+					additionalSimNode.id,
+					additionalSimNode.inputs[1].id,
+					[
+						{ x: 0, y: 0 },
+						{ x: 0, y: 0 }
+					]
+				);
+				wf.addEdge(
+					additionalSimNode.id,
+					additionalSimNode.outputs[0].id,
 					compareDatasetNode.id,
 					compareDatasetNode.inputs[compareDatasetIndex].id,
 					[
@@ -318,13 +507,75 @@ export class ValueOfInformationScenario extends BaseScenario {
 				);
 				compareDatasetIndex++;
 			});
+
+			wf.addEdge(
+				simulateNode.id,
+				simulateNode.outputs[0].id,
+				compareDatasetNode.id,
+				compareDatasetNode.inputs[compareDatasetIndex].id,
+				[
+					{ x: 0, y: 0 },
+					{ x: 0, y: 0 }
+				]
+			);
+			compareDatasetIndex++;
 		});
 
-		// Wait for all interventionPromises to resolve
-		await Promise.all(interventionPromises);
+		// Run simulations automatically if indicated
+		if (this.simulateSpec.runSimulationsAutomatically) {
+			await runSimulations(wf, this.getDefaultForecastSettings(), fetchedInterventionPolicies);
+		}
 
-		// 4. Run layout
-		wf.runDagreLayout();
+		// 5. Run layout
+		// The schematic for value-of-information is as follows
+		//
+		//  Model ->                 Intervention1, Intervention2, Intervention3
+		//           ModelConfig 1
+		//           ModelConfig 2                Forecasts-Grid                  CompareDataset
+		//           ModelConfig 3
+		//
+		//
+		const nodeGapHorizontal = 400;
+		const nodeGapVertical = 400;
+		modelNode.x = 100;
+		modelNode.y = 500;
+
+		// Build the XY axis
+		interventionNodes.forEach((interventionNode, idx) => {
+			interventionNode.x = modelNode.x + nodeGapHorizontal * (idx + 3);
+			interventionNode.y = modelNode.y - 50;
+		});
+
+		const configNodes = wf.getNodes().filter((node) => node.operationType === ModelConfigOp.name);
+		configNodes.forEach((modelConfigNode, idx) => {
+			modelConfigNode.x = modelNode.x + nodeGapHorizontal;
+			modelConfigNode.y = modelNode.y + nodeGapVertical * (idx + 1);
+		});
+
+		// Layout forecast
+		const forecastNodes = wf.getNodes().filter((node) => node.operationType === SimulateCiemssOp.name);
+		forecastNodes.forEach((node) => {
+			const neighbors = wf.getNeighborNodes(node.id);
+			const upstreamNodes = neighbors.upstreamNodes;
+
+			node.x = modelNode.x + nodeGapHorizontal * 2; // Default
+			upstreamNodes.forEach((upstreamNode) => {
+				// Y
+				if (upstreamNode.operationType === ModelConfigOp.name) {
+					node.y = upstreamNode.y;
+				}
+
+				// X
+				if (upstreamNode.operationType === InterventionOp.name) {
+					node.x = upstreamNode.x;
+				}
+			});
+		});
+
+		// Data comparison
+		compareDatasetNode.x = modelNode.x + (3 + interventionNodes.length) * nodeGapHorizontal;
+
+		compareDatasetNode.y = 500;
 
 		return wf.dump();
 	}

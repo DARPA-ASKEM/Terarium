@@ -7,7 +7,7 @@
 		:pt="{ wrapper: { style: { overflow: 'none' } } }"
 		:key="projectTableKey"
 		data-key="id"
-		paginator
+		:paginator="projects.length > numberOfRows"
 		v-model:expandedRows="dataExpandedRows"
 	>
 		<Column
@@ -62,11 +62,11 @@
 		</Column>
 		<template #expansion="{ data }">
 			<div v-for="asset in data.assets" :key="asset.assetId" class="flex align-items-center gap-1">
-				<span class="ml-4 pi pi-minus secondary-text"></span>
 				<tera-asset-button
 					v-if="asset.assetType != AssetType.Project"
 					:asset="asset"
 					@click="emit('open-asset', data.id, asset.assetId, asset.assetType)"
+					class="ml-1"
 				/>
 				<tera-show-more-text :text="asset.assetShortDescription" :lines="3" />
 				<template v-if="visibleEmbeddingResult(asset.embeddingType)">
@@ -181,6 +181,12 @@ watch(
 	color: var(--text-color-secondary);
 }
 
+/* No bottom border and reduced bottom padding for cells that have an expansion cell beneath them */
+:deep(.p-datatable-tbody > tr:not(.p-datatable-row-expansion) > td) {
+	border-bottom: 1px solid transparent;
+	padding-bottom: var(--gap-0);
+}
+
 :deep(.p-datatable-tbody > tr:not(.p-highlight):focus) {
 	background-color: transparent;
 }
@@ -194,19 +200,19 @@ watch(
 .p-datatable:deep(.p-datatable-tbody > tr > td a:hover) {
 	color: var(--primary-color);
 	text-decoration: underline;
+	background: var(--surface-highlight);
 }
 
 /* Adjust padding for non-empty expansion rows */
 :deep(.p-datatable-tbody > tr.p-datatable-row-expansion > :not(td:empty)) {
-	padding: var(--gap-0) var(--gap-1);
-	padding-bottom: var(--gap-4);
-	background: var(--surface-50);
+	padding-top: 0;
+	padding-bottom: var(--gap-3);
+	background: var(--surface-0);
 }
 
 /* Remove padding for empty expansion rows */
 :deep(.p-datatable-tbody > tr.p-datatable-row-expansion > td:empty) {
-	border: none;
-	padding: 0;
+	padding: var(--gap-1-5);
 }
 
 /* Truncate long text for asset list, project name and highlighted description*/

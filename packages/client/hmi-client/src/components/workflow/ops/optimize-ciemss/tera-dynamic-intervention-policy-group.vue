@@ -11,8 +11,8 @@
 		</div>
 		<p>
 			Set the {{ dynamicInterventions[0].type }}&nbsp; <strong>{{ dynamicInterventions[0].appliedTo }}</strong> to
-			<strong>{{ dynamicInterventions[0].threshold }}</strong> days when it crosses the threshold value
-			<strong>{{ dynamicInterventions[0].value }}</strong> person.
+			<strong>{{ dynamicInterventions[0].value }}</strong> when it crosses the threshold value
+			<strong>{{ dynamicInterventions[0].threshold }}</strong>
 		</p>
 	</div>
 </template>

@@ -401,6 +401,36 @@ public class ReBACService {
 	}
 
 	@Observed(name = "function_profile")
+	// https://github.com/DARPA-ASKEM/terarium/issues/6008
+	public PermissionRole getAdminRole() {
+		final RolesResource rolesResource = keycloak.realm(REALM_NAME).roles();
+		for (final RoleRepresentation roleRepresentation : rolesResource.list()) {
+			if (roleRepresentation.getDescription().isBlank()) {
+				if (roleRepresentation.getId().equals(ASKEM_ADMIN_GROUP_ID)) {
+					final RoleResource roleResource = rolesResource.get(roleRepresentation.getName());
+					final List<PermissionUser> users = new ArrayList<>();
+					for (final UserRepresentation userRepresentation : roleResource.getRoleUserMembers()) {
+						if (userRepresentation.getEmail() != null) {
+							final PermissionUser user = new PermissionUser(
+								userRepresentation.getId(),
+								userRepresentation.getFirstName(),
+								userRepresentation.getLastName(),
+								userRepresentation.getEmail()
+								// no roles are acquired (to avoid circular references etc)
+							);
+							users.add(user);
+						}
+					}
+
+					return new PermissionRole(roleRepresentation.getId(), roleRepresentation.getName(), users);
+				}
+			}
+		}
+
+		return null;
+	}
+
+	@Observed(name = "function_profile")
 	public List<PermissionGroup> getGroups() {
 		final List<PermissionGroup> response = new ArrayList<>();
 

@@ -6,12 +6,7 @@
 			:visualization-spec="lossChartSpec"
 		/>
 		<div v-if="outputData">
-			<vega-chart
-				v-for="(chart, index) of ensembleVariableCharts"
-				:key="index"
-				:interactive="false"
-				:visualization-spec="chart"
-			/>
+			<vega-chart v-for="(chart, index) of ensembleVariableCharts" :key="index" :visualization-spec="chart" />
 		</div>
 		<tera-progress-spinner
 			v-if="inProgressCalibrationId || inProgressForecastId"
@@ -42,7 +37,7 @@ import {
 	getSimulation,
 	DataArray
 } from '@/services/models/simulation-service';
-import { parseCsvAsset, setupCsvAsset } from '@/services/calibrate-workflow';
+import { setupCsvAsset } from '@/services/calibrate-workflow';
 import { nodeMetadata, nodeOutputLabel } from '@/components/workflow/util';
 import { logger } from '@/utils/logger';
 import { Poller, PollerState } from '@/api/api';
@@ -55,6 +50,7 @@ import { useProjects } from '@/composables/project';
 import { useChartSettings } from '@/composables/useChartSettings';
 import { useCharts } from '@/composables/useCharts';
 import { GroupedDataArray } from '@/services/charts';
+import { parseCsvAsset } from '@/utils/csv';
 import {
 	CalibrateEnsembleCiemssOperation,
 	CalibrateEnsembleCiemssOperationState
@@ -63,7 +59,7 @@ import {
 	updateLossChartSpec,
 	getLossValuesFromSimulation,
 	formatCalibrateModelConfigurations,
-	getSelectedOutputEnsembleMapping,
+	getChartEnsembleMapping,
 	buildChartData,
 	fetchModelConfigurations,
 	fetchOutputData
@@ -97,7 +93,7 @@ const outputData = ref<{
 	resultGroupByTimepoint: GroupedDataArray;
 } | null>(null);
 const groundTruthData = computed<DataArray>(() => parseCsvAsset(csvAsset.value as CsvAsset));
-const selectedOutputMapping = computed(() => getSelectedOutputEnsembleMapping(props.node));
+const selectedOutputMapping = computed(() => getChartEnsembleMapping(props.node, {}));
 const { selectedEnsembleVariableSettings } = useChartSettings(props, emit);
 const { useEnsembleVariableCharts } = useCharts(
 	props.node.id,
@@ -279,7 +275,7 @@ watch(
 				type: CalibrateEnsembleCiemssOperation.outputs[0].type,
 				label: nodeOutputLabel(props.node, `Calibration Result`),
 				value: datasetResult.id,
-				state
+				state: _.omit(state, ['chartSettings'])
 			});
 		}
 	},

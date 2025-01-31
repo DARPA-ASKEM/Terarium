@@ -7,6 +7,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -37,8 +41,8 @@ public class EnrichDatasetResponseHandler extends TaskResponseHandler {
 	@Data
 	public static class Input {
 
-		@JsonProperty("research_paper")
-		String researchPaper;
+		@JsonProperty("document")
+		String document;
 
 		@JsonProperty("dataset")
 		String dataset;
@@ -66,6 +70,31 @@ public class EnrichDatasetResponseHandler extends TaskResponseHandler {
 		Boolean overwrite;
 	}
 
+	private void removeNullNodes(ObjectNode objectNode) {
+		Iterator<Map.Entry<String, JsonNode>> fields = objectNode.fields();
+		List<String> keysToRemove = new ArrayList<>();
+
+		while (fields.hasNext()) {
+			Map.Entry<String, JsonNode> entry = fields.next();
+			JsonNode value = entry.getValue();
+			if (value.isNull()) {
+				keysToRemove.add(entry.getKey());
+			} else if (value.isObject()) {
+				removeNullNodes((ObjectNode) value);
+			} else if (value.isArray()) {
+				for (JsonNode arrayItem : value) {
+					if (arrayItem.isObject()) {
+						removeNullNodes((ObjectNode) arrayItem);
+					}
+				}
+			}
+		}
+
+		for (String key : keysToRemove) {
+			objectNode.remove(key);
+		}
+	}
+
 	@Override
 	public TaskResponse onSuccess(final TaskResponse resp) {
 		try {
@@ -83,9 +112,14 @@ public class EnrichDatasetResponseHandler extends TaskResponseHandler {
 
 			// Update the dataset with the new card
 			((ObjectNode) dataset.getMetadata()).set("dataCard", response.response.card);
+
+			// Remove fields from the datacard that are null
+			final ObjectNode dataCard = (ObjectNode) dataset.getMetadata().get("dataCard");
+			removeNullNodes(dataCard);
+
 			((ObjectNode) dataset.getMetadata()).put(
 					"description",
-					renderJsonToHTML(response.response.card).getBytes(StandardCharsets.UTF_8)
+					renderJsonToHTML(dataCard).getBytes(StandardCharsets.UTF_8)
 				);
 
 			// Update the dataset columns with the new descriptions
@@ -100,10 +134,6 @@ public class EnrichDatasetResponseHandler extends TaskResponseHandler {
 				metadata.put("name", name);
 				metadata.put("description", description);
 				metadata.put("unit", unit);
-
-				// Based on the name, description, fetch the best grounding available and add it to the metadata
-				// final DKG grounding = dkgService.knnSearchEpiDKG(0, 1, 1, name + " " + description, null)
-				// metadata.put("grounding", grounding);
 
 				dataset
 					.getColumns()

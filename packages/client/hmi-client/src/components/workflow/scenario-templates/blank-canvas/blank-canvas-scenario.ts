@@ -4,7 +4,7 @@ import * as workflowService from '@/services/workflow';
 export class BlankCanvasScenario extends BaseScenario {
 	public static templateId = 'blank-canvas';
 
-	public static templateName = 'Blank Canvas';
+	public static templateName = 'Blank canvas';
 
 	constructor() {
 		super();

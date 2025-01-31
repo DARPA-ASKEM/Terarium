@@ -9,13 +9,11 @@ import jakarta.validation.constraints.NotNull;
 import java.io.Serial;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.experimental.Accessors;
 import software.uncharted.terarium.hmiserver.annotations.TSIgnore;
 import software.uncharted.terarium.hmiserver.annotations.TSModel;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
-@Accessors
 @TSModel
 @Entity
 public class InitialSemantic extends Semantic {

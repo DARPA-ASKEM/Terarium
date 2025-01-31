@@ -1,27 +1,28 @@
 package software.uncharted.terarium.hmiserver.models.dataservice;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import java.io.Serial;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import org.hibernate.annotations.Type;
+import software.uncharted.terarium.hmiserver.annotations.TSIgnore;
 import software.uncharted.terarium.hmiserver.annotations.TSModel;
 import software.uncharted.terarium.hmiserver.annotations.TSOptional;
 import software.uncharted.terarium.hmiserver.models.TerariumEntity;
 import software.uncharted.terarium.hmiserver.models.mira.DKG;
 
-/** Represents a grounding document from TDS */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Accessors(chain = true)
 @TSModel
 @Entity
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Grounding extends TerariumEntity {
 
 	@Serial
@@ -30,25 +31,58 @@ public class Grounding extends TerariumEntity {
 	/** Ontological identifier per DKG */
 	@Type(JsonType.class)
 	@Column(columnDefinition = "json")
-	private List<DKG> identifiers;
+	private Map<String, String> identifiers;
 
 	/** (Optional) Additional context that informs the grounding */
 	@TSOptional
 	@Type(JsonType.class)
 	@Column(columnDefinition = "json")
-	private JsonNode context;
+	private Map<String, String> context;
+
+	/** (Optional) Additional stratification modifiers */
+	@TSOptional
+	@Type(JsonType.class)
+	@Column(columnDefinition = "json")
+	private Map<String, String> modifiers;
+
+	/** Default constructor */
+	public Grounding() {
+		this.identifiers = new HashMap<>();
+		this.context = new HashMap<>();
+		this.modifiers = new HashMap<>();
+	}
+
+	/** Constructor from a DKG */
+	public Grounding(DKG dkg) {
+		this.identifiers = new HashMap<>();
+		final String[] curie = dkg.getCurie().split(":");
+		this.identifiers.put(curie[0], curie[1]);
+		this.context = new HashMap<>();
+		this.modifiers = new HashMap<>();
+	}
 
 	@Override
 	public Grounding clone() {
 		final Grounding clone = new Grounding();
-		if (this.identifiers != null) {
-			clone.identifiers = new ArrayList<>();
-			clone.identifiers.addAll(this.identifiers);
+
+		if (this.identifiers != null && !this.identifiers.isEmpty()) {
+			clone.identifiers = new HashMap<>();
+			clone.identifiers.putAll(this.identifiers);
 		}
-		if (this.context != null) {
-			clone.context = this.context.deepCopy();
+		if (this.context != null && !this.context.isEmpty()) {
+			clone.context = new HashMap<>();
+			clone.context.putAll(this.context);
+		}
+		if (this.modifiers != null && !this.modifiers.isEmpty()) {
+			clone.modifiers = new HashMap<>();
+			clone.modifiers.putAll(this.modifiers);
 		}
 
 		return clone;
+	}
+
+	@TSIgnore
+	public Boolean isEmpty() {
+		return this.identifiers.isEmpty() && this.context.isEmpty() && this.modifiers.isEmpty();
 	}
 }

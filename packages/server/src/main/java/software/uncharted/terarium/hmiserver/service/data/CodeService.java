@@ -9,7 +9,7 @@ import software.uncharted.terarium.hmiserver.repository.data.CodeRepository;
 import software.uncharted.terarium.hmiserver.service.s3.S3ClientService;
 
 @Service
-public class CodeService extends TerariumAssetServiceWithoutSearch<Code, CodeRepository> {
+public class CodeService extends TerariumAssetService<Code, CodeRepository> {
 
 	public CodeService(
 		final ObjectMapper objectMapper,

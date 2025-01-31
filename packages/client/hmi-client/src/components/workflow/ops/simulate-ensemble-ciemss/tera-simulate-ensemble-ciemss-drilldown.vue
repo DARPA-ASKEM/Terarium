@@ -167,13 +167,13 @@
 										<label>Solver method</label>
 										<Dropdown
 											v-model="knobs.method"
-											:options="[CiemssMethodOptions.dopri5, CiemssMethodOptions.euler]"
+											:options="[CiemssMethodOptions.dopri5, CiemssMethodOptions.rk4, CiemssMethodOptions.euler]"
 										/>
 									</div>
-									<div v-if="knobs.method === CiemssMethodOptions.euler" class="label-and-input">
+									<div class="label-and-input">
 										<label>Solver step size</label>
 										<tera-input-number
-											:disabled="knobs.method !== CiemssMethodOptions.euler"
+											:disabled="![CiemssMethodOptions.rk4, CiemssMethodOptions.euler].includes(knobs.method)"
 											:min="0"
 											v-model="knobs.stepSize"
 										/>
@@ -467,7 +467,7 @@ onMounted(async () => {
 	// initialze weights
 	if (_.isEmpty(knobs.value.weights)) {
 		allModelConfigurations.forEach((config) => {
-			knobs.value.weights[config.id as string] = 5;
+			knobs.value.weights[config.id as string] = 1;
 		});
 	}
 });

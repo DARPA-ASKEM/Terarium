@@ -194,6 +194,16 @@ export const createNotificationEventHandlers = (notificationItems: Ref<Notificat
 			Object.assign(created, { context: workflow?.name || '' })
 		);
 	});
+	registerHandler<TaskResponse>(ClientEventType.TaskGollmInterventionsFromDataset, (event, created) => {
+		created.supportCancel = true;
+		created.sourceName = 'Intervention Policies from Dataset';
+		created.assetId = event.data.additionalProperties.workflowId as string;
+		created.pageType = AssetType.Workflow;
+		created.nodeId = event.data.additionalProperties.nodeId as string;
+		getWorkflow(created.assetId, created.projectId).then((workflow) =>
+			Object.assign(created, { context: workflow?.name || '' })
+		);
+	});
 	registerHandler<StatusUpdate<SimulationNotificationData>>(
 		ClientEventType.SimulationNotification,
 		(event, created) => {

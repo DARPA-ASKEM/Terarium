@@ -2,11 +2,12 @@ import { Operation, WorkflowOperationTypes, BaseState } from '@/types/workflow';
 import { ChartSetting } from '@/types/common';
 import { CalibrateMap } from '@/services/calibrate-workflow';
 import calibrateSimulateCiemss from '@assets/svg/operator-images/calibrate-simulate-probabilistic.svg';
+import { CiemssMethodOptions } from '@/services/models/simulation-service';
 
-const DOCUMENTATION_URL = 'https://github.com/ciemss/pyciemss/blob/main/pyciemss/interfaces.py#L529';
+const DOCUMENTATION_URL = 'https://documentation.terarium.ai/simulation/calibrate-model/';
 
 export interface CalibrationOperationStateCiemss extends BaseState {
-	method: string;
+	method: CiemssMethodOptions;
 	timestampColName: string;
 	mapping: CalibrateMap[];
 	chartSettings: ChartSetting[] | null; // null indicates that the chart settings have not been set yet
@@ -51,7 +52,7 @@ export const CalibrationOperationCiemss: Operation = {
 
 	initState: () => {
 		const init: CalibrationOperationStateCiemss = {
-			method: 'dopri5',
+			method: CiemssMethodOptions.dopri5,
 			chartSettings: null,
 			timestampColName: '',
 			mapping: [{ modelVariable: '', datasetVariable: '' }],

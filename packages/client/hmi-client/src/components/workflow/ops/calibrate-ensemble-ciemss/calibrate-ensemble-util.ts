@@ -6,12 +6,14 @@ import {
 	getEnsembleResultModelConfigMap,
 	getRunResultCSV,
 	getSimulation,
-	parseEnsemblePyciemssMap
+	parseEnsemblePyciemssMap,
+	processAndSortSamplesByTimepoint
 } from '@/services/models/simulation-service';
 import { EnsembleModelConfigs, ModelConfiguration } from '@/types/Types';
 import { WorkflowNode } from '@/types/workflow';
 import { getActiveOutput } from '@/components/workflow/util';
 import { CalibrateMap, setupModelInput } from '@/services/calibrate-workflow';
+import { getAsConfiguredModel } from '@/services/model-configurations';
 import {
 	CalibrateEnsembleCiemssOperationState,
 	CalibrateEnsembleMappingRow,
@@ -84,8 +86,9 @@ export function formatCalibrateModelConfigurations(
 	return [...Object.values(ensembleModelConfigMap)];
 }
 
-export function getSelectedOutputEnsembleMapping(
+export function getChartEnsembleMapping(
 	node: WorkflowNode<CalibrateEnsembleCiemssOperationState>,
+	stateToModelConfigMap: { [key: string]: string[] },
 	hasTimestampCol = true
 ) {
 	const wfOutputState = getActiveOutput(node)?.state;
@@ -96,34 +99,24 @@ export function getSelectedOutputEnsembleMapping(
 			datasetMapping: wfOutputState?.timestampColName ?? '',
 			modelConfigurationMappings: {}
 		});
+
+	// For every State Variable that has not been mapped in the ensembleMapping
+	// We will fill in here so the user can still see these if they want
+	Object.keys(stateToModelConfigMap).forEach((state) => {
+		if (!mapping.find((map) => map.newName === state)) {
+			const modelConfigurationsMap = {};
+			stateToModelConfigMap[state].forEach((id) => {
+				modelConfigurationsMap[id] = state;
+			});
+			mapping.push({
+				newName: state,
+				datasetMapping: '',
+				modelConfigurationMappings: modelConfigurationsMap
+			});
+		}
+	});
 	return mapping;
 }
-
-/**
- * Group values for each variable by timepoint_id and sort them. This precomputed data will be used to calculate the quantiles on the fly.
- * @param result Pyciemss result data
- * @returns Array of objects where each object has variable names as keys and sorted values as values.
- * e.g. [{variable1: [1, 2, 3], variable2: [4, 5, 6]}, ...] where each item in the variable array is a sample value.
- */
-const processAndSortSamplesByTimepoint = (result: DataArray) => {
-	// Sort sample values for each variable grouped by timepoint_id (this precomputed data will be used to calculate the quantiles on the fly)
-	// If this becomes a performance bottleneck, we can consider using web workers or chunked sorting with setTimeout to avoid blocking the main thread.
-	const grouped = _.groupBy(result, 'timepoint_id');
-	const resultGroupByTimepointId: GroupedDataArray = [];
-	Object.entries(grouped).forEach(([timepointId, samples]) => {
-		const obj: Record<string, number[]> = {};
-		samples.forEach((sample) => {
-			Object.entries(sample).forEach(([variable, value]) => {
-				if (obj[variable] === undefined) obj[variable] = [];
-				obj[variable].push(value);
-			});
-		});
-		// sort the values for each variable
-		Object.values(obj).forEach((values) => values.sort((a, b) => a - b));
-		resultGroupByTimepointId[timepointId] = obj;
-	});
-	return resultGroupByTimepointId;
-};
 
 export async function fetchOutputData(preForecastId: string, postForecastId: string) {
 	if (!postForecastId || !preForecastId) return null;
@@ -237,4 +230,38 @@ export function getEnsembleErrorData(
 		errorData[configId] = getErrorData(groundTruth, simulationData, cMapping, timestampColName, pyciemssMap);
 	});
 	return errorData;
+}
+
+// This will grab all of the variables in each model configuration and place them into a dictionary.
+// The key will be the variable, the value will be a list of uuids that this variable is found in.
+// An example output with two model config ids uuid-1 and uuid-2 may look like where model 1 is SIRD, and model 2 is SIR
+// {
+// 		S: ["uuid-1","uuid-2"]
+// 		I: ["uuid-1","uuid-2"]
+// 		R: ["uuid-1","uuid-2"]
+// 		D: ["uuid-1"]
+// }
+
+export async function setStateToModelConfigMap(modelConfigurationIds: string[]) {
+	const stateToModelConfigMap: { [key: string]: string[] } = {};
+	const models: any[] = [];
+	// Model configuration input
+	await Promise.all(
+		modelConfigurationIds.map(async (id) => {
+			const model = await getAsConfiguredModel(id);
+			models.push({ ...model, configId: id });
+		})
+	);
+
+	models.forEach((model) => {
+		const modelConfigId = model.configId as string;
+		model.model.states.forEach((state) => {
+			const key = state.id;
+			if (!stateToModelConfigMap[key]) {
+				stateToModelConfigMap[key] = [];
+			}
+			stateToModelConfigMap[key].push(modelConfigId);
+		});
+	});
+	return stateToModelConfigMap;
 }

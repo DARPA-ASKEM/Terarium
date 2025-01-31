@@ -8,11 +8,13 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import software.uncharted.terarium.hmiserver.models.dataservice.project.Contributor;
 import software.uncharted.terarium.hmiserver.models.permissions.PermissionGroup;
+import software.uncharted.terarium.hmiserver.models.permissions.PermissionRole;
 import software.uncharted.terarium.hmiserver.models.permissions.PermissionUser;
 import software.uncharted.terarium.hmiserver.utils.rebac.ReBACService;
 import software.uncharted.terarium.hmiserver.utils.rebac.RelationsipAlreadyExistsException.RelationshipAlreadyExistsException;
@@ -65,13 +67,27 @@ public class ProjectPermissionsService {
 	 */
 	@Cacheable(value = "projectreaders", key = "#rebacProject.id", unless = "#result == null")
 	public List<Contributor> getReaders(final RebacProject rebacProject) throws Exception {
-		return getContributorsByRelationships(
+		List<Contributor> readers = getContributorsByRelationships(
 			rebacProject,
 			Schema.Relationship.CREATOR,
 			Schema.Relationship.ADMIN,
 			Schema.Relationship.WRITER,
 			Schema.Relationship.READER
-		);
+		)
+			.stream()
+			.filter(contributor -> contributor.isUser()) // remove groups
+			.toList();
+
+		// add admin users
+		PermissionRole role = reBACService.getAdminRole();
+		if (role != null) {
+			for (PermissionUser user : role.getUsers()) {
+				final String name = user.getFirstName() + " " + user.getLastName();
+				readers.add(new Contributor(name, user.getId(), Schema.Relationship.ADMIN));
+			}
+		}
+
+		return readers;
 	}
 
 	/**
@@ -90,7 +106,12 @@ public class ProjectPermissionsService {
 		);
 	}
 
-	@CacheEvict(value = "projectcontributors", key = "#what.id")
+	@Caching(
+		evict = {
+			@CacheEvict(value = "projectcontributors", key = "#what.id"),
+			@CacheEvict(value = "projectreaders", key = "#what.id")
+		}
+	)
 	public void setProjectPermissions(final RebacProject what, final RebacObject who, final String relationship)
 		throws Exception {
 		try {
@@ -98,7 +119,12 @@ public class ProjectPermissionsService {
 		} catch (final RelationshipAlreadyExistsException ignore) {}
 	}
 
-	@CacheEvict(value = "projectcontributors", key = "#what.id")
+	@Caching(
+		evict = {
+			@CacheEvict(value = "projectcontributors", key = "#what.id"),
+			@CacheEvict(value = "projectreaders", key = "#what.id")
+		}
+	)
 	public ResponseEntity<JsonNode> updateProjectPermissions(
 		final RebacProject what,
 		final RebacObject who,
@@ -114,7 +140,12 @@ public class ProjectPermissionsService {
 		}
 	}
 
-	@CacheEvict(value = "projectcontributors", key = "#what.id")
+	@Caching(
+		evict = {
+			@CacheEvict(value = "projectcontributors", key = "#what.id"),
+			@CacheEvict(value = "projectreaders", key = "#what.id")
+		}
+	)
 	public void removeProjectPermissions(final RebacProject what, final RebacObject who, final String relationship)
 		throws Exception {
 		try {

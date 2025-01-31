@@ -50,10 +50,11 @@ const toggleContextMenu = (event) => {
 <style scoped>
 div {
 	background-color: var(--gray-0);
+	border-radius: var(--border-radius);
+	border: 1px solid var(--surface-border-light);
 	border-left: 4px solid var(--surface-300);
-	border-bottom: 1px solid var(--gray-300);
 	padding: var(--gap-1) var(--gap-1) var(--gap-3) var(--gap-3);
-
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 	&.selected {
 		border-left-color: var(--primary-color);
 	}
@@ -64,7 +65,7 @@ div {
 	}
 
 	&:not(.card-selected):hover {
-		background-color: var(--gray-50);
+		background-color: var(--surface-highlight);
 		cursor: pointer;
 	}
 }

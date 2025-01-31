@@ -19,6 +19,8 @@ const useAuthStore = defineStore('auth', () => {
 					redirectUri
 				}
 			});
+		} else {
+			oidc.value?.logout({ redirectTo: 'specific url', url: redirectUri });
 		}
 	};
 	const logout = async () => {

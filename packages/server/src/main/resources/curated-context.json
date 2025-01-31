@@ -1,0 +1,758 @@
+{
+  "S": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {}
+  },
+  "S_l": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "severity": "low",
+      "species": "ncbitaxon:9606"
+    }
+  },
+  "S_h": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "severity": "high",
+      "species": "ncbitaxon:9606"
+    }
+  },
+  "E_h": {
+    "identifiers": {
+      "apollosv": "00000154"
+    },
+    "context": {
+      "species": "ncbitaxon:9606"
+    }
+  },
+  "P": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "stage": "predromal",
+      "species": "ncbitaxon:9606"
+    }
+  },
+  "I": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {}
+  },
+  "I1": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "stage": "mild",
+      "species": "ncbitaxon:9606"
+    }
+  },
+  "I2": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "stage": "severe",
+      "species": "ncbitaxon:9606"
+    }
+  },
+  "H": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "species": "ncbitaxon:9606"
+    }
+  },
+  "R": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {}
+  },
+  "R_h": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "species": "ncbitaxon:9606"
+    }
+  },
+  "S_r": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "species": "ncbitaxon:9989"
+    }
+  },
+  "E_r": {
+    "identifiers": {
+      "apollosv": "00000154"
+    },
+    "context": {
+      "species": "ncbitaxon:9989"
+    }
+  },
+  "I_r": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "species": "ncbitaxon:9989"
+    }
+  },
+  "R_r": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "species": "ncbitaxon:9989"
+    }
+  },
+  "ailing": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "disease_severity": "ncit:C25269",
+      "diagnosis": "ncit:C113725"
+    }
+  },
+  "asymptomatic": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "disease_severity": "ncit:C3833"
+    }
+  },
+  "confirmed": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "confirmed_infected": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "dead_corona_nontested": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {
+      "diagnosis": "ncit:C113725",
+      "cause_of_death": "ncit:C171133"
+    }
+  },
+  "dead_corona_tested": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220",
+      "cause_of_death": "ncit:C171133"
+    }
+  },
+  "dead_noncorona": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {
+      "cause_of_death": "ncit:C17649"
+    }
+  },
+  "deceased": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {}
+  },
+  "deceased_counties_neighbouring_counties_with_airports": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {
+      "county_property": "neighbouring_counties_with_airports"
+    }
+  },
+  "deceased_counties_with_airports": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {
+      "county_property": "with_airports"
+    }
+  },
+  "deceased_counties_with_highways": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {
+      "county_property": "with_highways"
+    }
+  },
+  "deceased_low_risk_counties": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {
+      "county_property": "low_risk"
+    }
+  },
+  "detected": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "diagnosed": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "discharged_counties_neighbouring_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "hospitalization": "ncit:C154475",
+      "county_property": "neighbouring_counties_with_airports"
+    }
+  },
+  "discharged_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "hospitalization": "ncit:C154475",
+      "county_property": "with_airports"
+    }
+  },
+  "discharged_counties_with_highways": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "hospitalization": "ncit:C154475",
+      "county_property": "with_highways"
+    }
+  },
+  "discharged_low_risk_counties": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "hospitalization": "ncit:C154475",
+      "county_property": "low_risk"
+    }
+  },
+  "exposed": {
+    "identifiers": {
+      "apollosv": "00000154"
+    },
+    "context": {}
+  },
+  "exposed_quarantined": {
+    "identifiers": {
+      "apollosv": "00000154"
+    },
+    "context": {
+      "quarantined": "ncit:C71902"
+    }
+  },
+  "extinct": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {}
+  },
+  "fatalities": {
+    "identifiers": {
+      "ncit": "C28554"
+    },
+    "context": {}
+  },
+  "healed": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {}
+  },
+  "h": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179"
+    }
+  },
+  "hospitalised": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179"
+    }
+  },
+  "hospitalised_counties_neighbouring_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "county_property": "neighbouring_counties_with_airports",
+      "icu": "ncit:C68851"
+    }
+  },
+  "hospitalised_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "county_property": "with_airports",
+      "icu": "ncit:C68851"
+    }
+  },
+  "hospitalised_counties_with_highways": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "county_property": "with_highways",
+      "icu": "ncit:C68851"
+    }
+  },
+  "hospitalised_low_risk_counties": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "county_property": "low_risk",
+      "icu": "ncit:C68851"
+    }
+  },
+  "hospitalized": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "disease_severity": "ncit:C25269"
+    }
+  },
+  "icu_counties_neighbouring_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "icu": "ncit:C53511",
+      "county_property": "neighbouring_counties_with_airports"
+    }
+  },
+  "icu_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "icu": "ncit:C53511",
+      "county_property": "with_airports"
+    }
+  },
+  "icu_counties_with_highways": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "icu": "ncit:C53511",
+      "county_property": "with_highways"
+    }
+  },
+  "icu_low_risk_counties": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "hospitalization": "ncit:C25179",
+      "icu": "ncit:C53511",
+      "county_property": "low_risk"
+    }
+  },
+  "infected": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {}
+  },
+  "infected_asymptomatic": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "disease_severity": "ncit:C3833"
+    }
+  },
+  "infected_counties_neighbouring_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "county_property": "neighbouring_counties_with_airports"
+    }
+  },
+  "infected_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "county_property": "with_airports"
+    }
+  },
+  "infected_counties_with_highways": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "county_property": "with_highways"
+    }
+  },
+  "infected_low_risk_counties": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "county_property": "low_risk"
+    }
+  },
+  "infected_nontested": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "diagnosed": "ncit:C113725"
+    }
+  },
+  "infected_quarantined": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "quarantined": "ncit:C71902"
+    }
+  },
+  "infected_reported": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "infected_strong_immune_system": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "immune_system": "ncit:C62223"
+    }
+  },
+  "infected_symptomatic": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "disease_severity": "ncit:C25269"
+    }
+  },
+  "infected_tested": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "infected_unreported": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "diagnosed": "ncit:C113725"
+    }
+  },
+  "infected_weak_immune_system": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "immune_system": "ncit:C62224"
+    }
+  },
+  "infectious": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "transmissibility": "ncit:C25376"
+    }
+  },
+  "pathogen": {
+    "identifiers": {
+      "ncit": "C80324"
+    },
+    "context": {}
+  },
+  "quarantined": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "quarantined": "ncit:C71902"
+    }
+  },
+  "quarantined_infected": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "quarantined": "ncit:C71902"
+    }
+  },
+  "recognized": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "recovered": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {}
+  },
+  "recovered_counties_neighbouring_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "county_property": "neighbouring_counties_with_airports"
+    }
+  },
+  "recovered_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "county_property": "with_airports"
+    }
+  },
+  "recovered_counties_with_highways": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "county_property": "with_highways"
+    }
+  },
+  "recovered_low_risk_counties": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "county_property": "low_risk"
+    }
+  },
+  "recovered_nontested": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "diagnosis": "ncit:C113725"
+    }
+  },
+  "recovered_tested": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "removed": {
+    "identifiers": {
+      "ido": "0000592"
+    },
+    "context": {}
+  },
+  "super_spreaders": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "transmissibility": "ncit:C49508"
+    }
+  },
+  "susceptible": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {}
+  },
+  "susceptible_confined": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "quarantined": "ncit:C71902"
+    }
+  },
+  "susceptible_counties_neighbouring_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "county_property": "neighbouring_counties_with_airports"
+    }
+  },
+  "susceptible_counties_with_airports": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "county_property": "with_airports"
+    }
+  },
+  "susceptible_counties_with_highways": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "county_property": "with_highways"
+    }
+  },
+  "susceptible_isolated": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "quarantined": "ncit:C71902"
+    }
+  },
+  "susceptible_low_risk_counties": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "county_property": "low_risk"
+    }
+  },
+  "susceptible_quarantined": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "quarantined": "ncit:C71902"
+    }
+  },
+  "susceptible_unconfined": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "quarantined": "ncit:C68851"
+    }
+  },
+  "symptomatic": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "disease_severity": "ncit:C25269"
+    }
+  },
+  "symptoms_nontested": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "disease_severity": "ncit:C25269",
+      "diagnosed": "ncit:C113725"
+    }
+  },
+  "symptoms_tested": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "disease_severity": "ncit:C25269",
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "threatened": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "disease_severity": "ncit:C25467"
+    }
+  },
+  "total_population": {
+    "identifiers": {
+      "ido": "0000509"
+    },
+    "context": {}
+  },
+  "uninfected_nontested": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "diagnosis": "ncit:C113725"
+    }
+  },
+  "uninfected_tested": {
+    "identifiers": {
+      "ido": "0000514"
+    },
+    "context": {
+      "diagnosis": "ncit:C15220"
+    }
+  },
+  "unquarantined_infected": {
+    "identifiers": {
+      "ido": "0000511"
+    },
+    "context": {
+      "quarantined": "ncit:C68851"
+    }
+  }
+}

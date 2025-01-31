@@ -4,8 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -39,6 +37,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import software.uncharted.terarium.hmiserver.models.dataservice.dataset.Dataset;
+import software.uncharted.terarium.hmiserver.models.dataservice.dataset.DatasetColumn;
 import software.uncharted.terarium.hmiserver.models.dataservice.document.DocumentAsset;
 import software.uncharted.terarium.hmiserver.models.dataservice.model.Model;
 import software.uncharted.terarium.hmiserver.models.dataservice.modelparts.ModelMetadata;
@@ -52,14 +51,15 @@ import software.uncharted.terarium.hmiserver.service.data.DatasetService;
 import software.uncharted.terarium.hmiserver.service.data.DocumentAssetService;
 import software.uncharted.terarium.hmiserver.service.data.ModelService;
 import software.uncharted.terarium.hmiserver.service.data.ProjectService;
+import software.uncharted.terarium.hmiserver.service.tasks.ChartAnnotationResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.CompareModelsResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.ConfigureModelFromDatasetResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.ConfigureModelFromDocumentResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.EnrichAmrResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.EnrichDatasetResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.EquationsFromImageResponseHandler;
-import software.uncharted.terarium.hmiserver.service.tasks.GenerateResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.GenerateSummaryHandler;
+import software.uncharted.terarium.hmiserver.service.tasks.InterventionsFromDatasetResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.InterventionsFromDocumentResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.ModelCardResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.TaskService;
@@ -89,9 +89,10 @@ public class GoLLMController {
 	private final EnrichAmrResponseHandler enrichAmrResponseHandler;
 	private final EnrichDatasetResponseHandler enrichDatasetResponseHandler;
 	private final EquationsFromImageResponseHandler equationsFromImageResponseHandler;
-	private final GenerateResponseHandler generateResponseHandler;
+	private final ChartAnnotationResponseHandler chartAnnotationResponseHandler;
 	private final GenerateSummaryHandler generateSummaryHandler;
 	private final InterventionsFromDocumentResponseHandler interventionsFromDocumentResponseHandler;
+	private final InterventionsFromDatasetResponseHandler interventionsFromDatasetResponseHandler;
 	private final ModelCardResponseHandler modelCardResponseHandler;
 
 	private final Messages messages;
@@ -104,9 +105,10 @@ public class GoLLMController {
 		taskService.addResponseHandler(enrichAmrResponseHandler);
 		taskService.addResponseHandler(enrichDatasetResponseHandler);
 		taskService.addResponseHandler(equationsFromImageResponseHandler);
-		taskService.addResponseHandler(generateResponseHandler);
+		taskService.addResponseHandler(chartAnnotationResponseHandler);
 		taskService.addResponseHandler(generateSummaryHandler);
 		taskService.addResponseHandler(interventionsFromDocumentResponseHandler);
+		taskService.addResponseHandler(interventionsFromDatasetResponseHandler);
 		taskService.addResponseHandler(modelCardResponseHandler);
 	}
 
@@ -557,6 +559,123 @@ public class GoLLMController {
 		return ResponseEntity.ok().body(resp);
 	}
 
+	@GetMapping("/interventions-from-dataset")
+	@Secured(Roles.USER)
+	@Operation(summary = "Dispatch a `GoLLM interventions-from-dataset` task")
+	@ApiResponses(
+		value = {
+			@ApiResponse(
+				responseCode = "200",
+				description = "Dispatched successfully",
+				content = @Content(
+					mediaType = "application/json",
+					schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = TaskResponse.class)
+				)
+			),
+			@ApiResponse(
+				responseCode = "404",
+				description = "The provided model or dataset arguments are not found",
+				content = @Content
+			),
+			@ApiResponse(responseCode = "500", description = "There was an issue dispatching the request", content = @Content)
+		}
+	)
+	public ResponseEntity<TaskResponse> createInterventionsFromDatasetTask(
+		@RequestParam(name = "model-id", required = true) final UUID modelId,
+		@RequestParam(name = "dataset-id", required = true) final UUID datasetId,
+		@RequestParam(name = "mode", required = false, defaultValue = "ASYNC") final TaskMode mode,
+		@RequestParam(name = "workflow-id", required = false) final UUID workflowId,
+		@RequestParam(name = "node-id", required = false) final UUID nodeId,
+		@RequestParam(name = "project-id", required = false) final UUID projectId
+	) {
+		final Schema.Permission permission = projectService.checkPermissionCanRead(
+			currentUserService.get().getId(),
+			projectId
+		);
+
+		// Grab the dataset
+		final List<String> dataArray = new ArrayList<>();
+
+		final Optional<Dataset> dataset = datasetService.getAsset(datasetId, permission);
+		if (dataset.isEmpty()) {
+			log.warn(String.format("Dataset %s not found", datasetId));
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+		}
+
+		// make sure there are records in the dataset
+		if (dataset.get().getFileNames() == null || dataset.get().getFileNames().isEmpty()) {
+			log.warn(String.format("Dataset %s has no extracted text", dataset));
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("dataset.not-found"));
+		}
+
+		for (final String filename : dataset.get().getFileNames()) {
+			try {
+				final Optional<String> datasetText = datasetService.fetchFileAsString(datasetId, filename);
+				if (datasetText.isPresent()) {
+					final List<String> rows = Arrays.asList(datasetText.get().split("\\r?\\n"));
+					dataArray.addAll(rows);
+				}
+			} catch (final Exception e) {
+				log.warn("Unable to fetch dataset files", e);
+				throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("dataset.files.not-found"));
+			}
+		}
+
+		// Grab the model
+		final Optional<Model> model = modelService.getAsset(modelId, permission);
+		if (model.isEmpty()) {
+			log.warn(String.format("Model %s not found", modelId));
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("model.not-found"));
+		}
+
+		final InterventionsFromDatasetResponseHandler.Input input = new InterventionsFromDatasetResponseHandler.Input();
+		input.setDataset(dataArray);
+		// stripping the metadata from the model before its sent since it can cause
+		// gollm to fail with massive inputs
+		model.get().setMetadata(new ModelMetadata());
+		input.setAmr(model.get().serializeWithoutTerariumFields(null, null));
+
+		// Create the task
+		final TaskRequest req = new TaskRequest();
+		req.setType(TaskType.GOLLM);
+		req.setScript(InterventionsFromDatasetResponseHandler.NAME);
+		req.setUserId(currentUserService.get().getId());
+
+		try {
+			req.setInput(objectMapper.writeValueAsBytes(input));
+		} catch (final Exception e) {
+			log.error("Unable to serialize input", e);
+		}
+
+		final InterventionsFromDatasetResponseHandler.Properties props =
+			new InterventionsFromDatasetResponseHandler.Properties();
+		props.setProjectId(projectId);
+		props.setDatasetId(datasetId);
+		props.setModelId(modelId);
+		props.setWorkflowId(workflowId);
+		props.setNodeId(nodeId);
+		req.setAdditionalProperties(props);
+
+		final TaskResponse resp;
+		try {
+			resp = taskService.runTask(mode, req);
+		} catch (final JsonProcessingException e) {
+			log.error("Unable to serialize input", e);
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, messages.get("task.gollm.json-processing"));
+		} catch (final TimeoutException e) {
+			log.warn("Timeout while waiting for task response", e);
+			throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, messages.get("task.gollm.timeout"));
+		} catch (final InterruptedException e) {
+			log.warn("Interrupted while waiting for task response", e);
+			throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, messages.get("task.gollm.interrupted"));
+		} catch (final ExecutionException e) {
+			log.error("Error while waiting for task response", e);
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, messages.get("task.gollm.execution-failure"));
+		}
+
+		return ResponseEntity.ok().body(resp);
+	}
+
 	@GetMapping("/compare-models")
 	@Secured(Roles.USER)
 	@Operation(summary = "Dispatch a `GoLLM Compare Models` task")
@@ -679,7 +798,7 @@ public class GoLLMController {
 			@ApiResponse(responseCode = "500", description = "There was an issue dispatching the request", content = @Content)
 		}
 	)
-	public ResponseEntity<TaskResponse> createGenerateResponseTask(
+	public ResponseEntity<TaskResponse> createGenerateSummaryTask(
 		@RequestParam(name = "mode", required = false, defaultValue = "SYNC") final TaskMode mode,
 		@RequestParam(name = "previousSummaryId", required = false) final UUID previousSummaryId,
 		@RequestParam(name = "project-id", required = false) final UUID projectId,
@@ -906,10 +1025,10 @@ public class GoLLMController {
 	)
 	public ResponseEntity<TaskResponse> createEnrichDatasetTask(
 		@RequestParam(name = "dataset-id", required = true) final UUID datasetId,
-		@RequestParam(name = "document-id", required = true) final UUID documentId,
+		@RequestParam(name = "document-id", required = false) final UUID documentId,
 		@RequestParam(name = "mode", required = false, defaultValue = "SYNC") final TaskMode mode,
 		@RequestParam(name = "project-id", required = false) final UUID projectId,
-		@RequestParam(name = "overwrite", required = false, defaultValue = "false") final boolean overwrite
+		@RequestParam(name = "overwrite", required = false, defaultValue = "true") final boolean overwrite
 	) {
 		final Schema.Permission permission = projectService.checkPermissionCanRead(
 			currentUserService.get().getId(),
@@ -917,16 +1036,17 @@ public class GoLLMController {
 		);
 
 		// Grab the document
-		final Optional<DocumentAsset> document = documentAssetService.getAsset(documentId, permission);
-		if (document.isEmpty()) {
-			log.warn(String.format("Document %s not found", documentId));
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("document.not-found"));
-		}
+		DocumentAsset document = null;
+		if (documentId != null) {
+			document = documentAssetService
+				.getAsset(documentId, permission)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("document.not-found")));
 
-		// make sure there is a text in the document
-		if (document.isPresent() && (document.get().getText() == null || document.get().getText().isEmpty())) {
-			log.warn(String.format("Document %s has no extracted text", documentId));
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("document.extraction.not-done"));
+			// make sure there is a text in the document
+			if (document.getText() == null || document.getText().isBlank()) {
+				log.warn(String.format("Document %s has no extracted text", documentId));
+				throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("document.extraction.not-done"));
+			}
 		}
 
 		// Grab the dataset
@@ -940,7 +1060,7 @@ public class GoLLMController {
 		try {
 			req = TaskUtilities.getEnrichDatasetTaskRequest(
 				currentUserService.get().getId(),
-				document.get(),
+				document,
 				dataset.get(),
 				projectId,
 				overwrite
@@ -965,6 +1085,26 @@ public class GoLLMController {
 		} catch (final ExecutionException e) {
 			log.error("Error while waiting for task response", e);
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, messages.get("task.gollm.execution-failure"));
+		}
+
+		// Update Grounding
+		final Optional<Dataset> newDataset = datasetService.getAsset(datasetId, permission);
+		if (newDataset.isEmpty()) {
+			log.warn(String.format("Dataset %s not found", datasetId));
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("dataset.not-found"));
+		}
+
+		if (newDataset.get().getColumns() != null && !newDataset.get().getColumns().isEmpty()) {
+			final List<DatasetColumn> columns = newDataset.get().getColumns();
+			TaskUtilities.getCuratedGrounding(columns);
+		}
+
+		try {
+			datasetService.updateAsset(newDataset.get(), projectId, permission);
+		} catch (final IOException e) {
+			final String errorString = String.format("Failed to update dataset %s", datasetId);
+			log.warn(errorString);
+			// exception is not thrown here because we don't want to *fail* because of this?
 		}
 
 		return ResponseEntity.ok().body(resp);
@@ -995,7 +1135,6 @@ public class GoLLMController {
 	)
 	public ResponseEntity<TaskResponse> equationsFromImageTask(
 		@RequestParam(name = "project-id", required = false) final UUID projectId,
-		@RequestParam(name = "document-id", required = true) final UUID documentId,
 		@RequestParam(name = "mode", required = false, defaultValue = "ASYNC") final TaskMode mode,
 		@RequestBody final EquationsFromImageBody image
 	) {
@@ -1047,7 +1186,6 @@ public class GoLLMController {
 
 		final EquationsFromImageResponseHandler.Properties props = new EquationsFromImageResponseHandler.Properties();
 		props.setProjectId(projectId);
-		props.setDocumentId(documentId);
 		req.setAdditionalProperties(props);
 
 		final TaskResponse resp;
@@ -1070,9 +1208,16 @@ public class GoLLMController {
 		return ResponseEntity.ok().body(resp);
 	}
 
-	@PostMapping("/generate-response")
+	@Data
+	public static class ChartAnnotationRequestBody {
+
+		private String preamble = "";
+		private String instruction;
+	}
+
+	@PostMapping("/chart-annotation")
 	@Secured(Roles.USER)
-	@Operation(summary = "Dispatch a `GoLLM Generate Response` task.")
+	@Operation(summary = "Dispatch a `GoLLM Chart Annotation` task.")
 	@ApiResponses(
 		value = {
 			@ApiResponse(
@@ -1099,40 +1244,19 @@ public class GoLLMController {
 	public ResponseEntity<TaskResponse> createGenerateResponseTask(
 		@RequestParam(name = "mode", required = false, defaultValue = "SYNC") final TaskMode mode,
 		@RequestParam(name = "project-id", required = false) final UUID projectId,
-		@Parameter(
-			name = "response-format",
-			description = "The format of the response, either 'json' or OpenAI response_format json object, if not provided, the response will be in the default text format",
-			schema = @io.swagger.v3.oas.annotations.media.Schema(
-				oneOf = { JsonNode.class, String.class },
-				allowableValues = { "json" }
-			),
-			in = ParameterIn.QUERY
-		) @RequestParam(name = "response-format", required = false) final Object responseFormat,
-		@RequestBody final String instruction
+		@RequestBody final ChartAnnotationRequestBody body
 	) {
 		JsonNode resFormat = null;
 
-		if (responseFormat instanceof JsonNode) {
-			resFormat = (JsonNode) responseFormat;
-		} else if (responseFormat instanceof final String format) {
-			if (format.equals("json")) {
-				try {
-					resFormat = objectMapper.readTree("{\"type\": \"json_object\"}");
-				} catch (final JsonProcessingException e) {
-					throw new IllegalArgumentException("Invalid JSON format for response-format parameter");
-				}
-			}
-		}
-
 		// set task input
-		final GenerateResponseHandler.Input input = new GenerateResponseHandler.Input();
-		input.setInstruction(instruction);
-		input.setResponseFormat(resFormat);
+		final ChartAnnotationResponseHandler.Input input = new ChartAnnotationResponseHandler.Input();
+		input.setPreamble(body.getPreamble());
+		input.setInstruction(body.getInstruction());
 
 		// create the task
 		final TaskRequest req = new TaskRequest();
 		req.setType(TaskType.GOLLM);
-		req.setScript(GenerateResponseHandler.NAME);
+		req.setScript(ChartAnnotationResponseHandler.NAME);
 		req.setUserId(currentUserService.get().getId());
 
 		try {

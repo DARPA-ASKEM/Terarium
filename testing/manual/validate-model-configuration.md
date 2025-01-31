@@ -20,7 +20,7 @@ For example, one might have an `SEIRD` mode-configuration, where the infection r
 3. Drag and drop the model from the Resources panel onto the workflow.
 4. Attach the model to a _Configure model_ operator.
 5. Open the _Configure Model_ operator to verify that the model is reasonably configured by inspecting the value of the initial conditions and parameters:
-     - `S = 2000.0, I = 1.0, R = 0.0, beta = [0.03, 0.05], gamma = [0.01, 0.03]`
+     - `S = 2000.0, I = 1.0, R = 0.0, beta = [0.01, 0.1], gamma = [0.01, 0.1]`
 6. Attach the _Configure Model_ operator to a _Validate configuration_ operator.
 
 ### 3. Setup and run
@@ -40,7 +40,7 @@ For example, one might have an `SEIRD` mode-configuration, where the infection r
 1. Once an output has been generated look at the `S` state chart
 2. Note that the time-series chart shows the evolution of the model variables as a function of time, with one trajectory per sampled points in parameter space (coloured green when they satisfy all sanity checks, yellow otherwise)
 3. Verify that:
-   - The points of the trajectories are plotted as specified by _Number of timesteps_ (`10`)
+   - The points of the trajectories are plotted as specified by _Number of timesteps_ (`= 35`)
    - The light blue model check box matches the constraint configuration (you won't see it yet if you chose step 3.5b)
 4. In the Output settings slider check the checkbox that says _Only show furthest results_. See if the furthest true, false and ambiguous boxes are the only ones plotted (step 3.5a's constraint will just show you one true box).
 5. Check the _Focus on model checks_ checkbox. See if the chart changes to show the large range that the model check covers.

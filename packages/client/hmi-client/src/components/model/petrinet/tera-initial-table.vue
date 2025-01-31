@@ -7,7 +7,7 @@
 			</template>
 
 			<ul>
-				<li v-for="{ baseInitial, childInitials, isVirtual } in initialList" :key="baseInitial" class="element-card">
+				<li v-for="{ baseInitial, childInitials, isVirtual } in initialList" :key="baseInitial">
 					<!-- Stratified -->
 					<section v-if="isVirtual" class="initial-entry-stratified">
 						<Accordion multiple>
@@ -125,29 +125,40 @@ ul {
 	padding-left: var(--gap-1);
 
 	& li {
-		border-bottom: 1px solid var(--surface-border-light);
 		list-style: none;
 		margin-bottom: var(--gap-1-5);
-		padding-bottom: var(--gap-1-5);
 	}
 }
 
-.element-card {
-	background-color: var(--surface-0);
-}
-.element-card:hover {
-	background-color: var(--surface-50);
-}
-
 .initial-entry-stratified {
+	border: 1px solid var(--surface-border-light);
+	border-radius: var(--border-radius);
+	background: var(--surface-0);
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 	border-left: 4px solid var(--surface-300);
 	padding-left: var(--gap-1);
 }
-
+.initial-entry-stratified:hover {
+	border-left-color: var(--primary-color);
+	background: var(--surface-highlight);
+}
+/* But set a lighter hover state when hovering over child elements */
+.initial-entry-stratified:hover:has(.initial-entry:hover) {
+	border-left: 4px solid var(--primary-color-light);
+	background: color-mix(in srgb, var(--surface-highlight) 30%, var(--surface-0) 70%);
+}
 .artifact-amount {
 	font-size: var(--font-caption);
 	color: var(--text-color-subdued);
 	margin-left: var(--gap-1);
 	margin-right: auto;
+}
+
+:deep(.p-accordion-content) {
+	padding-top: 0;
+	background: none;
+}
+:deep(.p-accordion .p-accordion-header .p-accordion-header-link) {
+	background: transparent;
 }
 </style>

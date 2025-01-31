@@ -7,7 +7,7 @@ FROM python:3.11-slim-bookworm AS equation_extraction_taskrunner_builder
 # These deps are installed only for use during local development
 
 # Install OpenJDK
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install --assume-yes --no-install-recommends \
 	build-essential \
 	git \
 	libgl1 \
@@ -26,10 +26,10 @@ RUN COMMIT_SHA="$(cat /extractionVersion.txt)" && \
 	rm equation-extraction.tar.gz && \
 	mv document_intelligence-* document_intelligence
 WORKDIR /document_intelligence/document_intelligence/fast_latex
-RUN pip3 install -r requirements.txt
+RUN pip3 install --no-cache-dir --requirement requirements.txt
 
 #Install uvicorn and supervisord
-RUN pip3 install uvicorn setuptools augraphy supervisor
+RUN pip3 install --no-cache-dir uvicorn setuptools augraphy supervisor
 
 #^^^^^^^^^^^^^^^^^^^^
 ######################
@@ -52,7 +52,7 @@ FROM python:3.11-slim-bookworm
 WORKDIR /
 
 # Install OpenJDK JRE
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install --assume-yes --no-install-recommends \
 	build-essential \
 	git \
 	libgl1 \
@@ -71,18 +71,18 @@ COPY --from=equation_extraction_taskrunner_builder /taskrunner/build/libs/*.jar 
 # Install equation-extraction
 COPY --from=equation_extraction_taskrunner_builder /document_intelligence /document_intelligence
 WORKDIR /document_intelligence/document_intelligence/fast_latex
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir --requirement requirements.txt
 
 # Install taskrunner
 COPY ./packages/taskrunner/setup.py /taskrunner/setup.py
 COPY ./packages/taskrunner/taskrunner.py /taskrunner/taskrunner.py
 WORKDIR /taskrunner
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir --editable .
 
 # Install document_intelligence tasks
 COPY ./packages/equation_extraction /equation_extraction_task
 WORKDIR /equation_extraction_task
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir --editable .
 
 #Install uvicorn and supervisord
 RUN pip install uvicorn setuptools augraphy supervisor

@@ -53,6 +53,12 @@ header > * {
 	justify-content: space-between;
 }
 
+.title-row {
+	display: flex;
+	align-items: center;
+	gap: var(--gap-3);
+}
+
 .title-row > h4 > i {
 	color: var(--text-color-secondary);
 	margin-left: 1rem;

@@ -15,14 +15,19 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import software.uncharted.terarium.hmiserver.models.TerariumAsset;
 import software.uncharted.terarium.hmiserver.models.dataservice.AssetExport;
 import software.uncharted.terarium.hmiserver.models.dataservice.AssetType;
 import software.uncharted.terarium.hmiserver.models.dataservice.FileExport;
+import software.uncharted.terarium.hmiserver.models.dataservice.model.configurations.ModelConfiguration;
 import software.uncharted.terarium.hmiserver.models.dataservice.project.Project;
 import software.uncharted.terarium.hmiserver.models.dataservice.project.ProjectAsset;
 import software.uncharted.terarium.hmiserver.models.dataservice.project.ProjectExport;
+import software.uncharted.terarium.hmiserver.models.simulationservice.interventions.InterventionPolicy;
+import software.uncharted.terarium.hmiserver.repository.data.InterventionRepository;
+import software.uncharted.terarium.hmiserver.repository.data.ModelConfigRepository;
 import software.uncharted.terarium.hmiserver.service.data.ITerariumAssetService;
 import software.uncharted.terarium.hmiserver.service.data.ProjectAssetService;
 import software.uncharted.terarium.hmiserver.service.data.ProjectService;
@@ -39,6 +44,8 @@ public class TerariumAssetCloneService {
 	private final ProjectService projectService;
 	private final ProjectAssetService projectAssetService;
 	private final TerariumAssetServices terariumAssetServices;
+	private final ModelConfigRepository modelConfigRepository;
+	private final InterventionRepository interventionRepository;
 
 	/**
 	 * Given a project and a target asset, discover any assets that the target asset
@@ -51,7 +58,8 @@ public class TerariumAssetCloneService {
 	 * @throws IOException
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public List<TerariumAsset> cloneAndPersistAsset(final UUID projectId, final UUID assetId) throws IOException {
+	public List<TerariumAsset> cloneAndPersistAsset(final UUID projectId, final UUID assetId, AssetType type)
+		throws IOException {
 		final List<ProjectAsset> projectAssets = projectAssetService.getProjectAssets(projectId, Schema.Permission.READ);
 		final Map<UUID, ProjectAsset> projectAssetsById = new HashMap<>();
 		final Set<UUID> projectAssetIds = new HashSet<>();
@@ -64,6 +72,25 @@ public class TerariumAssetCloneService {
 		final Stack<UUID> assetsToClone = new Stack<>();
 		assetsToClone.push(assetId);
 
+		// this is a bit of an ugly hack to work around the one-way relationship between models and their configs/interventions
+		if (type.equals(AssetType.MODEL)) {
+			// find the model configurations that reference this model
+			final List<ModelConfiguration> modelConfigurations =
+				modelConfigRepository.findByModelIdAndDeletedOnIsNullAndTemporaryFalseOrderByCreatedOnAsc(
+					assetId,
+					PageRequest.of(0, 100)
+				);
+			final List<InterventionPolicy> interventionPolicies =
+				interventionRepository.findByModelIdAndDeletedOnIsNullAndTemporaryFalse(assetId, PageRequest.of(0, 100));
+
+			assetsToClone.addAll(
+				modelConfigurations.stream().map(ModelConfiguration::getId).filter(projectAssetsById::containsKey).toList()
+			);
+			assetsToClone.addAll(
+				interventionPolicies.stream().map(InterventionPolicy::getId).filter(projectAssetsById::containsKey).toList()
+			);
+		}
+
 		final Map<UUID, AssetDependencyMap> assetDependencies = new HashMap<>();
 
 		final List<TerariumAsset> clonedAssets = new ArrayList<>();
@@ -71,7 +98,7 @@ public class TerariumAssetCloneService {
 		final Map<UUID, UUID> oldToNewIds = new HashMap<>();
 		final Map<UUID, AssetType> assetTypes = new HashMap<>();
 
-		while (assetsToClone.size() > 0) {
+		while (!assetsToClone.isEmpty()) {
 			final UUID currentAssetId = assetsToClone.pop();
 
 			if (oldToNewIds.containsKey(currentAssetId)) {

@@ -1,6 +1,7 @@
 .p-editor-container {
     .p-editor-toolbar {
         background: $editorToolbarBg;
+				border-color: var(--surface-border-light) !important;
 
         &.ql-snow {
             border: $editorToolbarBorder;
@@ -78,6 +79,7 @@
 
         &.ql-snow {
             border: $editorContentBorder;
+						border-color: var(--surface-border-light) !important;
         }
 
         .ql-editor {

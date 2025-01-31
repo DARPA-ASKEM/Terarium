@@ -8,8 +8,8 @@ import lombok.experimental.Accessors;
 import software.uncharted.terarium.hmiserver.annotations.TSModel;
 import software.uncharted.terarium.hmiserver.annotations.TSOptional;
 import software.uncharted.terarium.hmiserver.models.SupportAdditionalProperties;
+import software.uncharted.terarium.hmiserver.models.dataservice.Grounding;
 import software.uncharted.terarium.hmiserver.models.dataservice.modelparts.ModelDistribution;
-import software.uncharted.terarium.hmiserver.models.dataservice.modelparts.ModelGrounding;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -29,7 +29,7 @@ public class RegNetParameter extends SupportAdditionalProperties implements Seri
 	private Double value;
 
 	@TSOptional
-	private ModelGrounding grounding;
+	private Grounding grounding;
 
 	@TSOptional
 	private ModelDistribution distribution;

@@ -1,7 +1,7 @@
 <template>
 	<div :class="{ selected: selected }">
 		<header>
-			<h6>{{ configuration.name }}</h6>
+			<h6 class="constrain-width">{{ configuration.name }}</h6>
 			<Button text icon="pi pi-ellipsis-v" @click.stop="toggleContextMenu" />
 		</header>
 		<ContextMenu
@@ -12,7 +12,7 @@
 			@mouseenter="contextMenuInFocus = true"
 			@mouseleave="contextMenuInFocus = false"
 		/>
-		<p>{{ configuration.description }}</p>
+		<p class="constrain-width">{{ configuration.description }}</p>
 		<p>{{ formatTimestamp(configuration.createdOn) }}</p>
 		<span v-if="emptyInputCount" :class="{ 'input-count': emptyInputCount }">{{ emptyInputCount }}</span>
 	</div>
@@ -75,8 +75,7 @@ const hideContextMenu = () => {
 const onDeleteConfiguration = () => {
 	confirm.require({
 		message: `Are you sure you want to delete the configuration ${props.configuration.name}?`,
-		header: 'Delete Confirmation',
-		icon: 'pi pi-exclamation-triangle',
+		header: 'Delete confirmation',
 		acceptLabel: 'Confirm',
 		rejectLabel: 'Cancel',
 		accept: async () => {
@@ -90,11 +89,12 @@ const onDeleteConfiguration = () => {
 <style scoped>
 div {
 	background: var(--surface-0);
+	border-radius: var(--border-radius);
 	border-left: 4px solid var(--surface-300);
 	padding: var(--gap-1) var(--gap-1) var(--gap-3) var(--gap-3);
-
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 	&:hover {
-		background-color: var(--gray-50);
+		background-color: var(--surface-highlight);
 		cursor: pointer;
 	}
 
@@ -133,5 +133,12 @@ span {
 
 p + p {
 	margin-top: var(--gap-2);
+}
+
+.constrain-width {
+	word-wrap: break-word; /* Legacy property */
+	overflow-wrap: break-word; /* Modern property */
+	word-break: break-word; /* For compatibility */
+	max-width: 100%; /* Ensures the text stays within container */
 }
 </style>

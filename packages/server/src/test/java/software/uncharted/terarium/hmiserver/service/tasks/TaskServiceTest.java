@@ -180,11 +180,10 @@ public class TaskServiceTest extends TerariumApplicationTests {
 	public void testItCanSendGoLLMGenerateResponseRequest() throws Exception {
 		final TaskRequest req = new TaskRequest();
 		req.setType(TaskType.GOLLM);
-		req.setScript(GenerateResponseHandler.NAME);
-		final GenerateResponseHandler.Input input = new GenerateResponseHandler.Input();
+		req.setScript(ChartAnnotationResponseHandler.NAME);
+		final ChartAnnotationResponseHandler.Input input = new ChartAnnotationResponseHandler.Input();
+		input.setPreamble("This is a preamble");
 		input.setInstruction("Give me a simple random json object");
-		final JsonNode resFormat = new ObjectMapper().readTree("{\"type\": \"json_object\"}");
-		input.setResponseFormat(resFormat);
 		req.setInput(input);
 
 		final TaskResponse resp = taskService.runTaskSync(req);

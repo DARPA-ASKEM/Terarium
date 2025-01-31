@@ -36,7 +36,10 @@ public class ScenarioExtraction {
 	// Replace parameter values in the model with the values from the condition
 	public static void replaceParameter(final ModelParameter parameter, final JsonNode conditionParameter) {
 		final String id = conditionParameter.get("id").asText();
-		if (parameter.getId().equals(id) || parameter.getId().equals(GreekDictionary.englishToGreek(id))) {
+		if (
+			parameter.getConceptReference().equals(id) ||
+			parameter.getConceptReference().equals(GreekDictionary.englishToGreek(id))
+		) {
 			if (conditionParameter.has("value")) {
 				final double value = conditionParameter.get("value").doubleValue();
 				parameter.setValue(value);
@@ -52,7 +55,7 @@ public class ScenarioExtraction {
 					);
 					parameter.setDistribution(distribution);
 				} catch (JsonProcessingException e) {
-					log.error("Failed to parse distribution for parameter: {}", parameter.getId());
+					log.error("Failed to parse distribution for parameter: {}", parameter.getConceptReference());
 				}
 			}
 		}

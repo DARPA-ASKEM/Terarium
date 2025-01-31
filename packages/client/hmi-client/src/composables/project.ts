@@ -64,7 +64,17 @@ export function useProjects() {
 			const interval = setInterval(() => {
 				if (areProjectsLoaded) {
 					clearInterval(interval);
-					resolve(allProjects.value?.filter((project) => project.id !== activeProjectId.value) ?? []);
+					const projects: Project[] = (allProjects.value ?? [])
+						.filter((project) => project.id !== activeProjectId.value)
+						.sort((a, b) => {
+							// sort by name
+							const nameA = (a?.name ?? '').toUpperCase();
+							const nameB = (b?.name ?? '').toUpperCase();
+							if (nameA < nameB) return -1;
+							if (nameA > nameB) return 1;
+							return 0; // names must be equal
+						});
+					resolve(projects);
 				}
 			}, TIMEOUT_MS);
 		});

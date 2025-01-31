@@ -147,17 +147,17 @@
 									<label><br />Solver method</label>
 									<Dropdown
 										class="p-inputtext-sm"
-										:options="[CiemssMethodOptions.dopri5, CiemssMethodOptions.euler]"
+										:options="[CiemssMethodOptions.dopri5, CiemssMethodOptions.rk4, CiemssMethodOptions.euler]"
 										v-model="knobs.solverMethod"
 										placeholder="Select"
 									/>
 								</div>
 								<div class="label-and-input">
-									<label>Solver Step Size</label>
+									<label><br />Solver step size</label>
 									<div>
 										<tera-input-number
 											v-model="knobs.solverStepSize"
-											:disabled="knobs.solverMethod !== CiemssMethodOptions.euler"
+											:disabled="![CiemssMethodOptions.rk4, CiemssMethodOptions.euler].includes(knobs.solverMethod)"
 											:min="0"
 										/>
 									</div>
@@ -272,7 +272,8 @@
 				<tera-notebook-error v-bind="node.state.optimizeErrorMessage" />
 				<tera-notebook-error v-bind="node.state.simulateErrorMessage" />
 				<template v-if="runResults[knobs.postForecastRunId] && runResults[knobs.preForecastRunId] && !showSpinner">
-					<section v-if="outputViewSelection === OutputView.Charts" ref="outputPanel">
+					<section v-if="outputViewSelection === OutputView.Charts">
+						<div class="mx-4" ref="chartWidthDiv"></div>
 						<Accordion multiple :active-index="currentActiveIndicies">
 							<AccordionTab header="Success criteria">
 								<ul>
@@ -303,14 +304,32 @@
 									</li>
 								</ul>
 							</AccordionTab>
-							<AccordionTab header="Comparison charts">
-								<template v-for="setting of selectedComparisonChartSettings" :key="setting.id">
-									<vega-chart
-										expandable
-										:are-embed-actions-visible="true"
-										:visualization-spec="comparisonCharts[setting.id]"
-									/>
-								</template>
+							<!-- Section: Comparison charts -->
+							<AccordionTab v-if="selectedComparisonChartSettings.length > 0" header="Comparison charts">
+								<div
+									class="flex justify-content-center"
+									v-for="setting of selectedComparisonChartSettings"
+									:key="setting.id"
+								>
+									<div class="flex flex-row flex-wrap" v-if="setting.selectedVariables.length > 0">
+										<vega-chart
+											v-for="(spec, index) of comparisonCharts[setting.id]"
+											:key="index"
+											expandable
+											:are-embed-actions-visible="true"
+											:visualization-spec="spec"
+										/>
+									</div>
+									<div v-else class="empty-state-chart">
+										<img
+											src="@assets/svg/operator-images/simulate-deterministic.svg"
+											alt="Select a variable"
+											draggable="false"
+											height="80px"
+										/>
+										<p class="text-center">Select a variable for comparison</p>
+									</div>
+								</div>
 							</AccordionTab>
 						</Accordion>
 					</section>
@@ -370,6 +389,7 @@
 							disabled
 						/>
 						<Divider />
+						<!-- Interventions charts -->
 						<tera-chart-settings
 							:title="'Interventions over time'"
 							:settings="chartSettings"
@@ -381,6 +401,7 @@
 							@selection-change="updateChartSettings"
 						/>
 						<Divider />
+						<!-- Variables charts -->
 						<tera-chart-settings
 							:title="'Variables over time'"
 							:settings="chartSettings"
@@ -392,24 +413,25 @@
 							@selection-change="updateChartSettings"
 						/>
 						<Divider />
+						<!-- Comparison charts -->
 						<tera-chart-settings
 							:title="'Comparison charts'"
 							:settings="chartSettings"
 							:type="ChartSettingType.VARIABLE_COMPARISON"
 							:select-options="simulationChartOptions"
-							:selected-options="comparisonChartsSettingsSelection"
+							:comparison-selected-options="comparisonChartsSettingsSelection"
 							@open="setActiveChartSettings($event)"
 							@remove="removeChartSettings"
-							@selection-change="comparisonChartsSettingsSelection = $event"
+							@comparison-selection-change="updateComparisonChartSetting"
 						/>
 						<div>
 							<Button
-								:disabled="!comparisonChartsSettingsSelection.length"
 								size="small"
 								text
-								@click="addComparisonChartSettings"
+								@click="addEmptyComparisonChart"
 								label="Add comparison chart"
 								icon="pi pi-plus"
+								class="mt-2"
 							/>
 						</div>
 						<Divider />
@@ -501,6 +523,7 @@ import {
 	OptimizationInterventionObjective
 } from './optimize-ciemss-operation';
 import { setQoIData, usePreparedChartInputs } from './optimize-utils';
+import { isInterventionPolicyBlank } from '../intervention-policy/intervention-policy-operation';
 
 const confirm = useConfirm();
 
@@ -522,7 +545,7 @@ interface BasicKnobs {
 	endTime: number;
 	numSamples: number;
 	solverStepSize: number;
-	solverMethod: string;
+	solverMethod: CiemssMethodOptions;
 	maxiter: number;
 	maxfeval: number;
 	preForecastRunId: string;
@@ -555,8 +578,8 @@ const successDisplayChartsCheckbox = ref(true);
 const showSaveDataDialog = ref<boolean>(false);
 const showSaveInterventionPolicy = ref<boolean>(false);
 
-const outputPanel = ref(null);
-const chartSize = useDrilldownChartSize(outputPanel);
+const chartWidthDiv = ref(null);
+const chartSize = useDrilldownChartSize(chartWidthDiv);
 const cancelRunId = computed(() => props.node.state.inProgressPostForecastId || props.node.state.inProgressOptimizeId);
 
 const activePolicyGroups = computed(() =>
@@ -585,7 +608,13 @@ const isCriteriaReady = computed(() => {
 	return activeConstraintGroups.length !== 0 && activeConstraintGroups.every((ele) => ele.targetVariable);
 });
 
-const isInterventionReady = computed(() => activePolicyGroups.value.length > 0);
+const selectedInterventionPolicy = ref<InterventionPolicy | null>(null);
+const isInterventionReady = computed(
+	() =>
+		activePolicyGroups.value.length > 0 &&
+		!!selectedInterventionPolicy.value &&
+		!isInterventionPolicyBlank(selectedInterventionPolicy.value)
+);
 
 const isEndTimeValid = computed(() =>
 	activePolicyGroups.value.every((ele) => {
@@ -739,7 +768,10 @@ const initialize = async () => {
 	const policyId = props.node.inputs[1]?.value?.[0];
 	if (policyId) {
 		// FIXME: This should be done in the node this should not be done in the drill down.
-		getInterventionPolicyById(policyId).then((interventionPolicy) => setInterventionPolicyGroups(interventionPolicy));
+		getInterventionPolicyById(policyId).then((interventionPolicy) => {
+			selectedInterventionPolicy.value = interventionPolicy;
+			if (interventionPolicy) setInterventionPolicyGroups(interventionPolicy);
+		});
 	}
 
 	const optimizedPolicyId = props.node.state.optimizedInterventionPolicyId;
@@ -1006,9 +1038,10 @@ const {
 	comparisonChartsSettingsSelection,
 	removeChartSettings,
 	updateChartSettings,
-	addComparisonChartSettings,
 	updateActiveChartSettings,
-	setActiveChartSettings
+	setActiveChartSettings,
+	addEmptyComparisonChart,
+	updateComparisonChartSetting
 } = useChartSettings(props, emit);
 
 const {
@@ -1116,6 +1149,7 @@ watch(
 	background: var(--surface-200);
 	border: 1px solid var(--surface-border-light);
 	border-radius: var(--border-radius);
+	box-shadow: inset 0 0px 4px rgba(0, 0, 0, 0.05);
 }
 
 /* Override grid template so output expands when sidebar is closed */
@@ -1231,5 +1265,18 @@ watch(
 	display: flex;
 	flex-direction: column;
 	gap: var(--gap-2);
+}
+
+.empty-state-chart {
+	display: flex;
+	flex-direction: column;
+	gap: var(--gap-4);
+	justify-content: center;
+	align-items: center;
+	height: 12rem;
+	margin: var(--gap-6);
+	padding: var(--gap-4);
+	background: var(--surface-100);
+	color: var(--text-color-secondary);
 }
 </style>

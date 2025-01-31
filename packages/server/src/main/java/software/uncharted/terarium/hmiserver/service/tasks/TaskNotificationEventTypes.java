@@ -9,6 +9,7 @@ public class TaskNotificationEventTypes {
 
 	private static final Map<String, ClientEventType> clientEventTypes = Map.ofEntries(
 		Map.entry(AMRToMMTResponseHandler.NAME, ClientEventType.TASK_MIRA_AMR_TO_MMT),
+		Map.entry(DatasetStatisticsResponseHandler.NAME, ClientEventType.TASK_GOLLM_DATASET_STATISTICS),
 		Map.entry(CompareModelsConceptsResponseHandler.NAME, ClientEventType.TASK_MIRA_COMPARE_MODELS_CONCEPTS),
 		Map.entry(CompareModelsResponseHandler.NAME, ClientEventType.TASK_GOLLM_COMPARE_MODEL),
 		Map.entry(ConfigureModelFromDatasetResponseHandler.NAME, ClientEventType.TASK_GOLLM_CONFIGURE_MODEL_FROM_DATASET),
@@ -17,6 +18,7 @@ public class TaskNotificationEventTypes {
 		Map.entry(EnrichDatasetResponseHandler.NAME, ClientEventType.TASK_GOLLM_ENRICH_DATASET),
 		Map.entry(EquationsFromImageResponseHandler.NAME, ClientEventType.TASK_GOLLM_EQUATIONS_FROM_IMAGE),
 		Map.entry(InterventionsFromDocumentResponseHandler.NAME, ClientEventType.TASK_GOLLM_INTERVENTIONS_FROM_DOCUMENT),
+		Map.entry(InterventionsFromDatasetResponseHandler.NAME, ClientEventType.TASK_GOLLM_INTERVENTIONS_FROM_DATASET),
 		Map.entry(ExtractEquationsResponseHandler.NAME, ClientEventType.TASK_EXTRACT_EQUATION_PDF),
 		Map.entry(ExtractTablesResponseHandler.NAME, ClientEventType.TASK_EXTRACT_TABLE_PDF),
 		Map.entry(ExtractTextResponseHandler.NAME, ClientEventType.TASK_EXTRACT_TEXT_PDF),

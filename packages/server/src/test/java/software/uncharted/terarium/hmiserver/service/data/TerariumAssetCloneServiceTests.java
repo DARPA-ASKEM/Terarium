@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.http.entity.ContentType;
 import org.junit.jupiter.api.AfterEach;
@@ -58,7 +59,6 @@ public class TerariumAssetCloneServiceTests extends TerariumApplicationTests {
 	@BeforeEach
 	public void setup() throws IOException {
 		projectSearchService.setupIndexAndAliasAndEnsureEmpty();
-		documentService.setupIndexAndAliasAndEnsureEmpty();
 		project = projectService.createProject(
 			(Project) new Project().setPublicAsset(true).setName("test-project-name").setDescription("my description")
 		);
@@ -66,15 +66,16 @@ public class TerariumAssetCloneServiceTests extends TerariumApplicationTests {
 
 	@AfterEach
 	public void teardown() throws IOException {
-		documentService.teardownIndexAndAlias();
 		projectSearchService.teardownIndexAndAlias();
 	}
 
 	static Grounding createGrounding(final String key) {
-		final Grounding grounding = new Grounding();
-		grounding.setContext(objectMapper.createObjectNode().put("hello", "world-" + key).put("foo", "bar-" + key));
-		grounding.setIdentifiers(new ArrayList<>());
-		grounding.getIdentifiers().add(new DKG("curie", "maria", "", null, null));
+		final DKG dkg = new DKG("curie:test", "maria", "", null, null);
+		final Grounding grounding = new Grounding(dkg);
+		final Map<String, String> context = new HashMap<>();
+		context.put("hello", "world-" + key);
+		context.put("foo", "bar-" + key);
+		grounding.setContext(context);
 		return grounding;
 	}
 
@@ -159,7 +160,11 @@ public class TerariumAssetCloneServiceTests extends TerariumApplicationTests {
 
 		projectAssetService.createProjectAsset(project, AssetType.WORKFLOW, workflow, ASSUME_WRITE_PERMISSION);
 
-		final List<TerariumAsset> cloned = cloneService.cloneAndPersistAsset(project.getId(), workflow.getId());
+		final List<TerariumAsset> cloned = cloneService.cloneAndPersistAsset(
+			project.getId(),
+			workflow.getId(),
+			AssetType.WORKFLOW
+		);
 
 		Assertions.assertEquals(1 + NUM_DOCUMENTS, cloned.size());
 		Assertions.assertEquals(1, cloned.stream().filter(a -> a instanceof Workflow).count());

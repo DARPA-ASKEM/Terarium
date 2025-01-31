@@ -449,7 +449,7 @@ public class TaskService {
 				});
 				container.start();
 
-				log.info("Consumer on queue {} started for rabbit admin: {}", queueName, rabbitAddress.toString());
+				log.info("Consumer on queue {} started for rabbit admin: {}", queueName, rabbitAddress);
 				taskResponseConsumers.put(rabbitAddress.toString(), container);
 			}
 		}
@@ -643,17 +643,11 @@ public class TaskService {
 			return mapper.readValue(message.getBody(), clazz);
 		} catch (final Exception e) {
 			try {
-				final JsonNode jsonMessage = mapper.readValue(message.getBody(), JsonNode.class);
-				log.error("Unable to parse message as {}. Message: {}", clazz.getName(), jsonMessage.toPrettyString());
+				mapper.readValue(message.getBody(), JsonNode.class);
+				log.error("Unable to parse message as {}.", clazz.getName(), e);
 				return null;
 			} catch (final Exception e1) {
-				log.error(
-					"Error decoding message as either {} or {}. Raw message is: {}",
-					clazz.getName(),
-					JsonNode.class.getName(),
-					message.getBody()
-				);
-				log.error("", e1);
+				log.error("Error decoding message as either {} or {}", clazz.getName(), JsonNode.class.getName(), e1);
 				return null;
 			}
 		}
@@ -722,7 +716,7 @@ public class TaskService {
 
 			notificationService.createNotificationGroup(group);
 		} catch (final Exception e) {
-			log.error("Failed to create notificaiton group for id: {}", req.getId(), e);
+			log.error("Failed to create notification group for id: {}", req.getId(), e);
 		}
 
 		// now send request

@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "card": {
+      "type": "object",
+      "properties": {
+        "datasetDescription": {
+          "type": "string",
+          "description": "A brief summary of the dataset, including its intended use, supported tasks, an overview of how and why the dataset was created, etc."
+        },
+        "insights": {
+          "type": "array",
+          "description": "List any columns that contain temporal or spatial data.",
+          "items": {
+            "type": "string",
+            "description": "A short paragraph describing and summarizing the dataset field. The paragraph should start with the name, then a colon, then a description of the column statistics."
+          }
+        },
+        "sourceData": {
+          "type": ["string", "null"],
+          "description": "The source data (e.g. news text and headlines, social media posts, translated sentences, etc.), including the data collection process, and data producer."
+        },
+        "considerationsForUsingTheData": {
+          "type": ["object", "null"],
+          "properties": {
+            "personalAndSensitiveInformation": {
+              "type": ["string", "null"],
+              "description": "Statement of whether the dataset contains other data that might be considered sensitive (e.g., data that reveals racial or ethnic origins, financial or health data, etc.)."
+            },
+            "discussionOfBiases": {
+              "type": ["string", "null"],
+              "description": "Discussion of any biases present in the data (e.g., missing data, imbalanced classes, label noise, etc.)."
+            },
+            "otherKnownLimitations": {
+              "type": ["string", "null"],
+              "description": "Any other limitations in the data."
+            }
+          },
+          "required": [
+            "personalAndSensitiveInformation",
+            "discussionOfBiases",
+            "otherKnownLimitations"
+          ],
+          "additionalProperties": false
+        },
+        "additionalInformation": {
+          "type": ["object", "null"],
+          "properties": {
+            "datasetCurators": {
+              "type": ["array", "null"],
+              "description": "The people involved in collecting the dataset and their affiliation(s).",
+              "items": {
+                "type": "string"
+              }
+            },
+            "licensingInformation": {
+              "type": ["string", "null"],
+              "description": "The license and link to the license webpage if available."
+            },
+            "citationInformation": {
+              "type": ["string", "null"],
+              "description": "The BibTex-formatted reference for the dataset."
+            },
+            "datasetHomepage": {
+              "type": ["string", "null"],
+              "description": "The homepage of the dataset."
+            },
+            "additionalLinks": {
+              "type": ["array", "null"],
+              "description": "Additional links related to the dataset.",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "datasetCurators",
+            "licensingInformation",
+            "citationInformation",
+            "datasetHomepage",
+            "additionalLinks"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "datasetDescription",
+        "insights",
+        "sourceData",
+        "considerationsForUsingTheData",
+        "additionalInformation"
+      ],
+      "additionalProperties": false
+    },
+    "columns": {
+      "type": "array",
+      "description": "List and describe the columns present in the dataset.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the column."
+          },
+          "description": {
+            "type": "string",
+            "description": "A short description of the column."
+          },
+          "unit": {
+            "type": "string",
+            "description": "The unit of the column."
+          },
+          "dataType": {
+            "type": "string",
+            "description": "The data type of the column.",
+            "enum": [
+              "UNKNOWN",
+              "BOOLEAN",
+              "STRING",
+              "CHAR",
+              "INTEGER",
+              "INT",
+              "FLOAT",
+              "DOUBLE",
+              "TIMESTAMP",
+              "DATETIME",
+              "DATE",
+              "TIME"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "unit",
+          "dataType"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "card",
+    "columns"
+  ],
+  "additionalProperties": false
+}

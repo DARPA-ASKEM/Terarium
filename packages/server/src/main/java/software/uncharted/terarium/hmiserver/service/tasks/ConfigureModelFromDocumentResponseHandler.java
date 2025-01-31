@@ -77,6 +77,10 @@ public class ConfigureModelFromDocumentResponseHandler extends TaskResponseHandl
 					configuration.setModelId(props.modelId);
 				}
 
+				if (configuration.getExtractionDocumentId() != props.documentId) {
+					configuration.setExtractionDocumentId(props.documentId);
+				}
+
 				// Fetch the document name
 				final Optional<DocumentAsset> document = documentAssetService.getAsset(
 					props.documentId,

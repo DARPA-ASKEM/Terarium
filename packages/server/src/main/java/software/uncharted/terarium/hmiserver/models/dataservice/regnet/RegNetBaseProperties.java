@@ -8,7 +8,7 @@ import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 import software.uncharted.terarium.hmiserver.annotations.TSModel;
 import software.uncharted.terarium.hmiserver.models.SupportAdditionalProperties;
-import software.uncharted.terarium.hmiserver.models.dataservice.modelparts.ModelGrounding;
+import software.uncharted.terarium.hmiserver.models.dataservice.Grounding;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -21,7 +21,7 @@ public class RegNetBaseProperties extends SupportAdditionalProperties implements
 
 	private String name;
 
-	private ModelGrounding grounding;
+	private Grounding grounding;
 
 	@JsonProperty("rate_constant")
 	private Object rateConstant;

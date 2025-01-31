@@ -42,7 +42,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import software.uncharted.terarium.hmiserver.models.ClientEventType;
-import software.uncharted.terarium.hmiserver.models.TerariumAssetEmbeddings;
 import software.uncharted.terarium.hmiserver.models.dataservice.document.DocumentAsset;
 import software.uncharted.terarium.hmiserver.models.dataservice.document.ExtractedDocumentPage;
 import software.uncharted.terarium.hmiserver.models.dataservice.model.Model;
@@ -706,19 +705,22 @@ public class ExtractionService {
 			provenanceService.createProvenance(provenance);
 
 			// update model embeddings
-			if (card != null && model.getPublicAsset() && !model.getTemporary()) {
-				final String cardText = objectMapper.writeValueAsString(card);
-				if (cardText != null) {
-					try {
-						final TerariumAssetEmbeddings embeddings = embeddingService.generateEmbeddings(cardText);
 
-						modelService.uploadEmbeddings(modelId, embeddings, hasWritePermission);
-						notificationInterface.sendMessage("Embeddings created");
-					} catch (final Exception e) {
-						log.warn("Unable to generate embedding vectors for model");
-					}
-				}
-			}
+			// TODO: do you want to update the model asset embeddings in the project index?
+
+			// if (card != null && model.getPublicAsset() && !model.getTemporary()) {
+			// 	final String cardText = objectMapper.writeValueAsString(card);
+			// 	if (cardText != null) {
+			// 		try {
+			// 			final TerariumAssetEmbeddings embeddings = embeddingService.generateEmbeddings(cardText);
+
+			// 			modelService.uploadEmbeddings(modelId, embeddings, hasWritePermission);
+			// 			notificationInterface.sendMessage("Embeddings created");
+			// 		} catch (final Exception e) {
+			// 			log.warn("Unable to generate embedding vectors for model");
+			// 		}
+			// 	}
+			// }
 
 			return model;
 		} catch (final FeignException e) {

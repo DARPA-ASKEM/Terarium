@@ -6,17 +6,15 @@ import java.io.Serializable;
 import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.experimental.Accessors;
 import software.uncharted.terarium.hmiserver.annotations.AMRSchemaType;
 import software.uncharted.terarium.hmiserver.annotations.TSOptional;
 import software.uncharted.terarium.hmiserver.models.SupportAdditionalProperties;
-import software.uncharted.terarium.hmiserver.models.dataservice.modelparts.ModelGrounding;
+import software.uncharted.terarium.hmiserver.models.dataservice.Grounding;
 import software.uncharted.terarium.hmiserver.models.dataservice.modelparts.ModelUnit;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
 @AMRSchemaType
-@Accessors
 public class Observable extends SupportAdditionalProperties implements Serializable, GroundedSemantic {
 
 	@Serial
@@ -40,17 +38,27 @@ public class Observable extends SupportAdditionalProperties implements Serializa
 	private String expression;
 
 	@TSOptional
-	private ModelGrounding grounding;
+	private Grounding grounding;
 
 	@TSOptional
 	@JsonProperty("expression_mathml")
 	private String expressionMathml;
 
 	@Override
+	public String getConceptReference() {
+		return id;
+	}
+
+	@Override
+	public void setConceptReference(String id) {
+		this.id = id;
+	}
+
+	@Override
 	public Observable clone() {
 		Observable clone = (Observable) super.clone();
 
-		clone.setId(this.getId());
+		clone.setConceptReference(this.getConceptReference());
 		clone.setName(this.getName());
 		if (this.states != null) {
 			clone.setStates(this.getStates());

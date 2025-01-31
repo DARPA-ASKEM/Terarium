@@ -6,7 +6,7 @@
 				<span v-if="name" class="ml-1">{{ '| ' + name }}</span>
 				<template v-if="units">
 					<label class="ml-auto">Unit:</label>
-					<span class="ml-1">{{ units }}</span>
+					<span class="ml-1 mr-3">{{ units }}</span>
 				</template>
 
 				<template v-if="concept">
@@ -27,7 +27,7 @@
 			</span>
 		</div>
 		<template v-else-if="!featureConfig?.isPreview">
-			<main>
+			<main class="flex flex-wrap gap-2">
 				<tera-distribution-input
 					:model="model"
 					:modelConfiguration="modelConfiguration"
@@ -125,7 +125,7 @@ const showOtherConfigValueModal = ref(false);
 const isParameterEmpty = ref(false);
 
 const otherValueList = computed(() =>
-	getOtherValues(props.modelConfigurations, props.parameterId, 'referenceId', 'parameterSemanticList')
+	getOtherValues(props.modelConfigurations, props.parameterId, 'referenceId', 'parameterSemanticList', description)
 );
 
 function getSourceLabel(initialId) {
@@ -153,8 +153,18 @@ onMounted(async () => {
 
 <style scoped>
 .parameter-entry {
+	background: var(--surface-0);
+	border: 1px solid var(--surface-border-light);
+	border-radius: var(--border-radius);
 	border-left: 4px solid var(--surface-300);
 	padding-left: var(--gap-4);
+	padding-right: var(--gap-4);
+	transition: all 0.15s;
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.parameter-entry:hover {
+	border-left: 4px solid var(--primary-color);
+	background: var(--surface-highlight);
 }
 .empty {
 	border-left: 4px solid var(--error-color);
@@ -192,7 +202,7 @@ label {
 	}
 }
 
-.parameter-input {
-	height: 2rem;
+:deep(.parameter-input) {
+	max-height: 2.5rem;
 }
 </style>

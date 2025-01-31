@@ -52,7 +52,6 @@ function getUnit(dynamicIntervention: DynamicIntervention) {
 
 <style scoped>
 .intervention-card {
-	background: var(--surface-section);
 	border: 1px solid var(--surface-border-light);
 	border-radius: var(--border-radius);
 	box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.08);
@@ -64,7 +63,8 @@ function getUnit(dynamicIntervention: DynamicIntervention) {
 	padding-right: var(--gap-2);
 	padding-bottom: var(--gap-3);
 	padding-left: var(--gap-2-5);
-	border-left: 4px solid var(--surface-400);
+	border-left: 4px solid var(--primary-color);
+	background: var(--surface-0);
 }
 
 ul {

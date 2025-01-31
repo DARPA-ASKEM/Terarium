@@ -23,7 +23,7 @@ Report any issues into GitHub: [open an issue](https://github.com/DARPA-ASKEM/te
     9. [SIR contact matrix dataset](https://drive.google.com/file/d/17TByirv-LwunB0gDq46-Ww-SyJZYaHKD/view?usp=sharing)
     10. [Prob 5 Model C](https://drive.google.com/file/d/1CF-n8OUroRaaNCaRTwvOgrPuASrktj1P/view?usp=drive_link)
     11. [Rosenblatt 2024](https://drive.google.com/file/d/1mGU2HwXG5ZWjgo24DNaNkq2oS5ipL6_V/view?usp=drive_link)
-3. Wait a minute or two for the Document Intelligence service to finish extracting artifacts from the uploaded document.
+2. Wait a minute or two for the Document Intelligence service to finish extracting artifacts from the uploaded document.
 
 ### 3. Extracting configurations from multiple documents and timeseries datasets
 1. Create a new workflow

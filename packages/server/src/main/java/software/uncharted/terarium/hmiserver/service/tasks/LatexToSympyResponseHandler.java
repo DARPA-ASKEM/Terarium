@@ -1,5 +1,7 @@
 package software.uncharted.terarium.hmiserver.service.tasks;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,9 +21,15 @@ public class LatexToSympyResponseHandler extends TaskResponseHandler {
 	}
 
 	@Data
+	public static class Input {
+
+		List<String> equations;
+	}
+
+	@Data
 	public static class Response {
 
-		String response;
+		JsonNode response;
 	}
 
 	@Override

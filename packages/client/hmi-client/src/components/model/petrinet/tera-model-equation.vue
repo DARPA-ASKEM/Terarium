@@ -9,17 +9,22 @@
 		@update-model-from-equation="updateModelFromEquations"
 	>
 		<template #math-editor>
-			<tera-math-editor
-				v-for="(eq, index) in equations"
-				:key="index"
-				:index="index"
-				:is-editable="isEditable"
-				:is-editing-eq="isEditing"
-				:latex-equation="eq"
-				@equation-updated="setNewEquation"
-				@delete="deleteEquation"
-				ref="equationsRef"
-			/>
+			<div v-if="exceedEquationsThreshold == false">
+				<tera-math-editor
+					v-for="(eq, index) in equations"
+					:key="index"
+					:index="index"
+					:is-editable="isEditable"
+					:is-editing-eq="isEditing"
+					:latex-equation="eq"
+					@equation-updated="setNewEquation"
+					@delete="deleteEquation"
+					ref="equationsRef"
+				/>
+			</div>
+			<div v-else>
+				<p>Number of equations exceed LaTex generator threshold.</p>
+			</div>
 		</template>
 	</tera-equation-container>
 </template>
@@ -42,11 +47,14 @@ const props = defineProps<{
 
 const emit = defineEmits(['model-updated']);
 
+const MAX_EQUATION_THRESHOLD = 100;
+
 const equationsRef = ref<any[]>([]);
 const equations = ref<string[]>([]);
 const originalEquations = ref<string[]>([]);
 const isEditing = ref(false);
 const isUpdating = ref<boolean>(false);
+const exceedEquationsThreshold = ref(false);
 
 const setNewEquation = (index: number, latexEq: string) => {
 	equations.value[index] = latexEq;
@@ -89,6 +97,19 @@ watch(
 	() => props.model.semantics,
 	async (newSemantics, oldSemantics) => {
 		if (isEqual(newSemantics, oldSemantics)) return;
+
+		// If there are too many states, don't bother generating the equations - Jan 2025
+		let eqLength = 0;
+		eqLength += props.model.model.states.length;
+		if (props.model.semantics?.ode.observables) {
+			eqLength += props.model.semantics.ode.observables.length;
+		}
+		if (eqLength > MAX_EQUATION_THRESHOLD) {
+			exceedEquationsThreshold.value = true;
+			return;
+		}
+		exceedEquationsThreshold.value = false;
+
 		const latexFormula = await getModelEquation(props.model);
 		if (latexFormula) {
 			updateLatexFormula(cleanLatexEquations(latexFormula.split(' \\\\')));

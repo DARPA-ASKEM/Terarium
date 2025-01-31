@@ -81,6 +81,17 @@ export default class PyodideController {
 		});
 	}
 
+	async getRankingScores(results: any[], outcomesofInterest: string[], parametersOfInterest: string[]) {
+		return new Promise<Map<string, Map<string, number>>>((...promise) => {
+			this.taskQueue.push({
+				action: 'getRankingScores',
+				params: [JSON.stringify(results), JSON.stringify(outcomesofInterest), JSON.stringify(parametersOfInterest)],
+				promise
+			});
+			this.queueTask();
+		});
+	}
+
 	private async queueTask() {
 		const worker = await this.worker;
 

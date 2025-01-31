@@ -56,13 +56,7 @@
 					:value="executeErrorResponse.value"
 					:traceback="executeErrorResponse.traceback"
 				/>
-				<tera-model
-					v-else-if="outputModel"
-					is-workflow
-					is-save-for-reuse
-					:assetId="outputModel.id"
-					@on-save="updateNode"
-				/>
+				<tera-model v-else-if="outputModel" is-workflow is-save-for-reuse :assetId="outputModel.id" />
 				<tera-progress-spinner v-else-if="isUpdatingModel || !outputModel" is-centered :font-size="2">
 					Loading...
 				</tera-progress-spinner>
@@ -103,7 +97,7 @@ import { ModelEditOperationState, ModelEditOperation } from './model-edit-operat
 const props = defineProps<{
 	node: WorkflowNode<ModelEditOperationState>;
 }>();
-const emit = defineEmits(['append-output', 'update-state', 'close', 'select-output', 'update-output']);
+const emit = defineEmits(['append-output', 'update-state', 'close', 'select-output']);
 
 const outputs = computed(() => {
 	if (!isEmpty(props.node.outputs)) {
@@ -140,11 +134,16 @@ const sampleAgentQuestions = [
 	'Add a new transition from S (to nowhere) with a rate constant of v with unit Days',
 	'Add a new transition from S (to nowhere) with a rate constant of v with unit Days. The Rate depends on R',
 	'Add an observable titled sample with the expression A * B  * p.',
+	'Add a new parameter with id θ and value 0.5.',
 	'Rename the state S to Susceptible in the infection transition.',
 	'Rename the transition infection to inf.',
 	'Change rate law of inf to S * I * z.',
-	'Add a new parameter with id θ and value 0.5.',
-	'Specify the time unit of the model to be "day"'
+	'Remove all unused parameters',
+	'Remove the parameter θ',
+	'Specify the time unit of the model to be "day"',
+	'Add a new transition that represents the states "Infected", "Hospitalized" controlling the production of the state "WastewaterViralLoad" with rate law "shed_rate * (Infected + Hospitalized)"',
+	'Add a new transition that represents the states "Susceptible", "Infected", "Recovered" controlling the degradation of the state "Hospitalized" with rate law "rec_rate * Hospitalized / (Susceptible + Infected + Recovered)"',
+	'Add a new transition that represents the states "Infected", "Recovered" controlling the conversion from the state "Susceptible" to the state "Vaccinated" with rate law "vac_rate / (Infected + Recovered)"'
 ];
 
 const contextLanguage = ref<string>('python3');
@@ -327,15 +326,6 @@ const hasCodeChange = () => {
 	}
 };
 const checkForCodeChange = debounce(hasCodeChange, 500);
-
-function updateNode(model: Model) {
-	if (!model) return;
-	outputModel.value = model;
-	const outputPort = cloneDeep(props.node.outputs?.find((port) => port.value?.[0] === model.id));
-	if (!outputPort) return;
-	outputPort.label = model.header.name;
-	emit('update-output', outputPort);
-}
 
 watch(
 	() => codeText.value,

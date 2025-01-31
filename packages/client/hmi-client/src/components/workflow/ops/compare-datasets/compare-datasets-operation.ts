@@ -2,13 +2,17 @@ import { WorkflowOperationTypes } from '@/types/workflow';
 import type { Operation, BaseState } from '@/types/workflow';
 import { ChartSetting } from '@/types/common';
 
+const DOCUMENTATION_URL = 'https://documentation.terarium.ai/datasets/compare-datasets/';
+
 export enum TimepointOption {
-	LAST = 'last',
-	FIRST = 'first'
+	LAST = 'at the last timepoint',
+	FIRST = 'at the first timepoint',
+	OVERALL = 'at its peak'
 }
+
 export enum RankOption {
-	MINIMUM = 'minimum',
-	MAXIMUM = 'maximum'
+	MINIMUM = 'minimize',
+	MAXIMUM = 'maximize'
 }
 
 export enum PlotValue {
@@ -18,24 +22,26 @@ export enum PlotValue {
 }
 
 export enum CompareValue {
-	IMPACT = 'impact',
-	RANK = 'rank'
+	SCENARIO = 'scenario',
+	RANK = 'rank',
+	ERROR = 'error'
 }
 
 export const blankCriteriaOfInterest = {
 	name: 'Criteria of interest',
-	configurations: [],
-	selectedConfiguration: null,
-	variables: [],
+	selectedConfigurationId: null,
 	selectedVariable: null,
 	rank: RankOption.MINIMUM,
-	timepoint: TimepointOption.LAST
+	timepoint: TimepointOption.OVERALL
 };
+
+// Map groundTruth dataset variable to the other dataset variables
+export interface CompareDatasetsMap {
+	[id: string]: string;
+}
+
 export interface CriteriaOfInterestCard {
 	name: string;
-	configurations: string[];
-	selectedConfiguration: string | null;
-	variables: string[];
 	selectedVariable: string | null;
 	rank: RankOption;
 	timepoint: TimepointOption;
@@ -44,15 +50,17 @@ export interface CompareDatasetsState extends BaseState {
 	criteriaOfInterestCards: CriteriaOfInterestCard[];
 	selectedPlotType: PlotValue;
 	selectedCompareOption: CompareValue;
-	selectedDataset: string | null;
+	selectedBaselineDatasetId: string | null;
+	selectedGroundTruthDatasetId: string | null;
 	chartSettings: ChartSetting[] | null;
+	mapping: CompareDatasetsMap[];
 }
 
 export const CompareDatasetsOperation: Operation = {
 	name: WorkflowOperationTypes.COMPARE_DATASETS,
 	displayName: 'Compare datasets',
 	description: 'Compare datasets, or simulation results',
-	documentationUrl: '',
+	documentationUrl: DOCUMENTATION_URL,
 	inputs: [
 		{ type: 'datasetId', label: 'Dataset or Simulation result' },
 		{ type: 'datasetId', label: 'Dataset or Simulation result' }
@@ -63,10 +71,12 @@ export const CompareDatasetsOperation: Operation = {
 	initState: () => {
 		const init: CompareDatasetsState = {
 			criteriaOfInterestCards: [blankCriteriaOfInterest],
-			selectedPlotType: PlotValue.PERCENTAGE,
-			selectedCompareOption: CompareValue.IMPACT,
-			selectedDataset: null,
-			chartSettings: null
+			selectedPlotType: PlotValue.DIFFERENCE,
+			selectedCompareOption: CompareValue.SCENARIO,
+			selectedBaselineDatasetId: null,
+			selectedGroundTruthDatasetId: null,
+			chartSettings: null,
+			mapping: []
 		};
 		return init;
 	}

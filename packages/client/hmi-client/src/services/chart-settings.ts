@@ -4,6 +4,7 @@ import {
 	ChartSetting,
 	ChartSettingEnsembleVariable,
 	ChartSettingEnsembleVariableOptions,
+	ChartSettingComparison,
 	ChartSettingSensitivity,
 	ChartSettingType
 } from '@/types/common';
@@ -24,6 +25,10 @@ export type EnsembleVariableChartSettingOption =
 
 export function isChartSettingEnsembleVariable(setting: ChartSetting): setting is ChartSettingEnsembleVariable {
 	return (<ChartSettingEnsembleVariable>setting).type === ChartSettingType.VARIABLE_ENSEMBLE;
+}
+
+export function isChartSettingComparisonVariable(setting: ChartSetting): setting is ChartSettingComparison {
+	return (<ChartSettingComparison>setting).type === ChartSettingType.VARIABLE_COMPARISON;
 }
 
 export const CHART_SETTING_WITH_QUANTILES_OPTIONS = [
@@ -278,212 +283,49 @@ export async function generateForecastChartAnnotation(
 		y: options.yAxisTitle ?? ''
 	};
 	const translateMap = _.pick(options.translationMap ?? {}, variables);
-	const prompt = `
-    You are an agent who is an expert in Vega-Lite chart specs. Provide a Vega-Lite layer JSON object for the annotation that can be added to an existing chart spec to satisfy the provided user request.
-
-    - The Vega-Lite schema version you must use is https://vega.github.io/schema/vega-lite/v5.json.
-    - Assume that you don’t know the exact data points from the data.
-    - You must give me the single layer object that renders all the necessary drawing objects, including multiple layers within the top layer object if needed.
-    - When adding a label, also draw a constant line perpendicular to the axis to which you are adding the label.
-
-    Assuming you are adding the annotations to the following chart spec,
-    ---- Example Chart Spec Start -----
-    {
-      "data": {"url": "data/samples.csv"},
-      "transform": [
-        {
-          "fold": ["price", "cost", "tax", "profit"],
-          "as": ["variableField", "valueField"]
-        }
-      ],
-      "layer": [
-        {
-          "mark": "line",
-          "encoding": {
-            "x": {"field": "date", "type": "quantitative", "axis": {"title": "Day"}},
-            "y": {"field": "valueField", "type": "quantitative", "axis": {"title": "Dollars"}}
-          }
-        }
-      ]
-    }
-    ---- Example Chart Spec End -----
-    Here are some example requests and the answers:
-
-    Request:
-    At day 200, add a label 'important'
-    Answer:
-    {
-      "description": "At day 200, add a label 'important'",
-      "layer": [
-        {
-          "mark": {
-            "type": "rule",
-            "strokeDash": [4, 4]
-          },
-          "encoding": {
-            "x": { "datum": 200, "axis": { "title": ""} }
-          }
-        },
-        {
-          "mark": {
-            "type": "text",
-            "align": "left",
-            "dx": 5,
-            "dy": -5
-          },
-          "encoding": {
-            "x": { "datum": 200, "axis": { "title": ""} }
-            "text": {"value": "important"}
-          }
-        }
-      ]
-    }
-
-    Request:
-    Add a label 'expensive' at price 20
-    Answer:
-    {
-      "description": "Add a label 'expensive' at price 20",
-      "layer": [
-        {
-          "mark": {
-            "type": "rule",
-            "strokeDash": [4, 4]
-          },
-          "encoding": {
-            "y": { "datum": 20, "axis": { "title": ""} }
-          }
-        },
-        {
-          "mark": {
-            "type": "text",
-            "align": "left",
-            "dx": 5,
-            "dy": -5
-          },
-          "encoding": {
-            "y": { "datum": 20, "axis": { "title": ""} },
-            "text": {"value": "expensive"}
-          }
-        }
-      ]
-    }
-
-    Request:
-    Add a vertical line for the day where the price exceeds 100.
-    Answer:
-    {
-      "description": "Add a vertical line for the day where the price exceeds 100.",
-      "transform": [
-        {"filter": "datum.valueField > 100"},
-        {"aggregate": [{"op": "min", "field": "date", "as": "min_date"}]}
-      ],
-      "layer": [
-        {
-          "mark": {
-            "type": "rule",
-            "strokeDash": [4, 4]
-          },
-          "encoding": {
-            "x": {"field": "min_date", "type": "quantitative", "axis": { "title": ""}}
-          }
-        },
-        {
-          "mark": {
-            "type": "text",
-            "align": "left",
-            "dx": 5,
-            "dy": -10
-          },
-          "encoding": {
-            "x": {"field": "min_date", "type": "quantitative", "axis": { "title": ""}},
-            "text": {"value": "Price > 100"}
-          }
-        }
-      ]
-    }
-
-    Request:
-    Add a vertical line at the day where the price reaches its peak value.
-    Answer:
-    {
-      "description": "Add a vertical line at the day where the price reaches its peak value.",
-      "transform": [
-        {"filter": "datum.variableField == 'price'"},
-        {
-          "joinaggregate": [{
-          "op": "max",
-          "field": "valueField",
-          "as": "max_price"
-          }]
-        },
-        {"filter": "datum.valueField >= datum.max_price"}
-      ],
-      "layer": [
-        {
-          "mark": {
-            "type": "rule",
-            "strokeDash": [4, 4]
-          },
-          "encoding": {
-            "x": {"field": "date", "type": "quantitative", "axis": { "title": ""}}
-          }
-        },
-        {
-          "mark": {
-            "type": "text",
-            "align": "left",
-            "dx": 5,
-            "dy": -10
-          },
-          "encoding": {
-            "x": {"field": "date", "type": "quantitative", "axis": { "title": ""}},
-            "text": {"value": "Max Price"}
-          }
-        }
-      ]
-    }
-
-    Here is the information of the existing target chart spec where you need to add the annotations:
+	const preamble = `
+		Here is the information of the existing target chart spec where you need to add the annotations:
     - The existing chart follows a similar pattern as the above Example Chart Spec like:
-        {
+        {{
           ...
           "transform": [
-            {
+            {{
               "fold": ${JSON.stringify(variables)},
               "as": ["variableField', "valueField"]
-            }
+            }}
           ],
           "layer": [
-            {
+            {{
               ...
-              "encoding": {
-                "x": {"field": "${timeField}", "type": "quantitative", "axis": {"title": "${axisTitle.x}"}},
-                "y": {"field": "valueField", "type": "quantitative", "axis": {"title": "${axisTitle.y}"}}
-              }
-            }
+              "encoding": {{
+                "x": {{"field": "${timeField}", "type": "quantitative", "axis": {{"title": "${axisTitle.x}"}}}},
+                "y": {{"field": "valueField", "type": "quantitative", "axis": {{"title": "${axisTitle.y}"}}}}
+              }}
+            }}
             ...
           ]
-        }
+        }}
     - Assume all unknown variables except the time field are for the y-axis and are renamed to the valueField.
     - Make sure possible values for 'valueField' are ${JSON.stringify(variables)} and try best to translate the variables mentioned from the request to the variables for the 'valueField'.
     - Leverage this variable to human readable name mapping: ${JSON.stringify(translateMap)} if needed.
-
+	`;
+	const instruction = `
     Give me the layer object to be added to the existing chart spec based on the following user request.
 
-    Request:
     ${request}
-    Answer
-    {
 	`;
-	const { data } = await API.post(`/gollm/generate-response?mode=SYNC&response-format=json`, prompt, {
-		headers: {
-			'Content-Type': 'application/json'
+	const { data } = await API.post(
+		`/gollm/chart-annotation?mode=SYNC`,
+		{ preamble, instruction },
+		{
+			headers: {
+				'Content-Type': 'application/json'
+			}
 		}
-	});
+	);
 	const str = b64DecodeUnicode(data.output);
 	const result = JSON.parse(str);
-	const layerSpec = JSON.parse(result.response);
+	const layerSpec = result.response ?? null;
 	return {
 		request,
 		layerSpec

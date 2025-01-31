@@ -12,7 +12,7 @@ import software.uncharted.terarium.hmiserver.service.s3.S3ClientService;
 import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
 
 @Service
-public class SummaryService extends TerariumAssetServiceWithoutSearch<Summary, SummaryRepository> {
+public class SummaryService extends TerariumAssetService<Summary, SummaryRepository> {
 
 	public SummaryService(
 		final ObjectMapper objectMapper,

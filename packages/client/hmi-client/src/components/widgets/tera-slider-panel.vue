@@ -8,7 +8,7 @@
 	>
 		<template v-slot:content>
 			<aside @scroll="onScroll">
-				<header :class="{ shadow: isScrolled }">
+				<header v-if="!documentViewer" :class="{ shadow: isScrolled }">
 					<Button
 						:icon="`pi ${directionMap[arrowDirection].iconOpen}`"
 						@click="emit('update:isOpen', false)"
@@ -18,6 +18,15 @@
 					/>
 					<slot name="header" />
 					<h4>{{ header }}</h4>
+				</header>
+				<header class="document-viewer-header" v-else>
+					<Button
+						:icon="`pi ${directionMap[arrowDirection].iconOpen}`"
+						@click="emit('update:isOpen', false)"
+						text
+						rounded
+						size="large"
+					/>
 				</header>
 				<div class="content-wrapper">
 					<slot name="content" />
@@ -81,6 +90,10 @@ const props = defineProps({
 	indicatorValue: {
 		type: Number,
 		default: 0
+	},
+	documentViewer: {
+		type: Boolean,
+		default: false
 	}
 });
 
@@ -112,7 +125,6 @@ aside {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	overflow-y: auto;
 }
 
 header {
@@ -136,6 +148,15 @@ header:not(.tab) {
 	backdrop-filter: blur(3px);
 }
 
+/* This is a minimalist header with just the collapse button */
+header.document-viewer-header {
+	position: absolute;
+	right: var(--gap-2);
+	width: 4rem;
+	height: 3.25rem;
+	background: var(--surface-0);
+}
+
 .content-wrapper {
 	flex: 1;
 }
@@ -146,10 +167,9 @@ header:not(.tab) {
 		background: color-mix(in srgb, var(--surface-100) 80%, transparent 20%);
 	}
 
-	& :deep(.slider-content),
-	& :deep(.slider-tab) {
+	& :deep(.content),
+	& :deep(.tab) {
 		background-color: var(--surface-100);
-		border-right: 1px solid var(--surface-border-light);
 	}
 
 	/** Override default accordion styles */
@@ -163,7 +183,7 @@ header:not(.tab) {
 }
 
 /* Don't nest this rule, it makes it easier for the parent to mutate when needed. */
-.input-config .content-wrapper {
+.input-config.open {
 	padding-bottom: 4rem;
 }
 

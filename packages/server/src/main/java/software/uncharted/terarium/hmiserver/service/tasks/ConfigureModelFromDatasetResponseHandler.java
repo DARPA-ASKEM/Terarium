@@ -81,6 +81,10 @@ public class ConfigureModelFromDatasetResponseHandler extends TaskResponseHandle
 					configuration.setModelId(props.modelId);
 				}
 
+				if (configuration.getExtractionDocumentId() != props.datasetId) {
+					configuration.setExtractionDocumentId(props.datasetId);
+				}
+
 				// Fetch the dataset name
 				final Optional<Dataset> dataset = datasetService.getAsset(
 					props.datasetId,

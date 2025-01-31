@@ -1,51 +1,15 @@
 <template>
-	<transition>
-		<div class="chart-settings-panel" v-if="activeSettings !== null">
-			<header :class="{ shadow: false }">
-				<Button :icon="`pi pi-times`" @click="$emit('close')" text rounded size="large" />
-				<h4 class="line-wrap">{{ activeSettings.name }}</h4>
-			</header>
-			<div class="content">
-				<div class="annotation-items">
-					<h5>Options</h5>
-					<tera-checkbox
-						label="Use log scale"
-						:model-value="Boolean(useLog)"
-						@update:model-value="toggleLogScale($event)"
-					/>
-					<tera-checkbox
-						v-if="comparison"
-						label="Small multiples"
-						:model-value="Boolean(isSmallMultiples)"
-						@update:model-value="toggleSmallMultiples($event)"
-					/>
-					<!-- TODO: we want this but it is under research for how to get it to work in vega-lite -->
-					<!-- <tera-checkbox
-						v-if="comparison && isSmallMultiples"
-						label="Share Y Axis"
-						:model-value="Boolean(isShareYAxis)"
-						@update:model-value="toggleShareYAxis($event)"
-					/> -->
-				</div>
-				<Divider />
-				<div v-if="chartAnnotations !== undefined" class="annotation-items">
-					<h5>Annotations</h5>
-					<div v-for="annotation in chartAnnotations" :key="annotation.id" class="annotation-item">
-						{{ annotation.description }}
-						<span class="btn-wrapper">
-							<Button icon="pi pi-trash" rounded text @click="$emit('delete-annotation', annotation.id)" />
-						</span>
-					</div>
-					<div>
-						<Button
-							v-if="!showAnnotationInput"
-							class="p-button-sm p-button-text"
-							icon="pi pi-plus"
-							label="Add annotation"
-							@click="showAnnotationInput = true"
-						/>
+	<div class="chart-settings-panel-anchor">
+		<transition>
+			<div class="chart-settings-panel" v-if="activeSettings !== null">
+				<header :class="{ shadow: false }">
+					<Button :icon="`pi pi-times`" @click="$emit('close')" text rounded size="large" />
+					<h4 class="line-wrap">{{ activeSettings.name }}</h4>
+				</header>
+				<div class="content items-wrapper">
+					<section v-if="chartAnnotations !== undefined" class="annotation-items">
+						<h5>Annotations</h5>
 						<tera-input-text
-							v-if="showAnnotationInput"
 							v-model="generateAnnotationQuery"
 							:icon="'pi pi-sparkles'"
 							:placeholder="'What do you want to annotate?'"
@@ -54,23 +18,85 @@
 							@keyup.esc="cancelGenerateAnnotation"
 							class="annotation-input"
 						/>
-					</div>
+						<div v-for="annotation in chartAnnotations" :key="annotation.id" class="annotation-item">
+							{{ annotation.description }}
+							<span class="btn-wrapper">
+								<Button icon="pi pi-trash" rounded text @click="$emit('delete-annotation', annotation.id)" />
+							</span>
+						</div>
+						<Divider />
+					</section>
+					<section class="items-wrapper">
+						<h5>Options</h5>
+						<tera-checkbox label="Use log scale" :model-value="useLog" @update:model-value="toggleLogScale($event)" />
+						<tera-checkbox
+							label="Hide in node"
+							:model-value="isHiddenInNode"
+							@update:model-value="toggleHideInNode($event)"
+						/>
+						<Divider />
+					</section>
+					<section v-if="isColorPickerEnabled">
+						<h5 class="mb-3">Color picker</h5>
+						<input type="color" :value="activeSettings?.primaryColor ?? ''" @change="onColorChange($event)" />
+						<Divider />
+					</section>
+					<section v-if="activeSettings?.type === ChartSettingType.VARIABLE_COMPARISON" class="items-wrapper">
+						<h5>Comparison method</h5>
+						<div>
+							<RadioButton
+								:model-value="smallMultiplesRadioValue"
+								@update:model-value="onSmallMultiplesRadioButtonChange"
+								inputId="all-charts"
+								value="all-charts"
+							/>
+							<label for="all-charts" class="ml-2">All in one chart</label>
+						</div>
+						<div>
+							<RadioButton
+								:model-value="smallMultiplesRadioValue"
+								@update:model-value="onSmallMultiplesRadioButtonChange"
+								inputId="small-multiples"
+								value="small-multiples"
+							/>
+							<label for="small-multiples" class="ml-2">Small multiples</label>
+						</div>
+						<div class="pl-5 items-wrapper">
+							<tera-checkbox
+								label="Same Y axis for all"
+								:disabled="!comparisonSettings?.smallMultiples"
+								:model-value="isShareYAxis"
+								@update:model-value="toggleShareYAxis($event)"
+							/>
+							<tera-checkbox
+								label="Show before and after"
+								:disabled="!comparisonSettings?.smallMultiples"
+								:model-value="showBeforeAfter"
+								@update:model-value="toggleShowBeforeAfter($event)"
+							/>
+						</div>
+						<Divider />
+						<h5>Normalize</h5>
+						<tera-checkbox
+							label="Normalize data by total strata population"
+							:model-value="normalizeData"
+							@update:model-value="toggleNormalizeData($event)"
+						/>
+						<slot v-if="normalizeData" name="normalize-content"></slot>
+						<Divider />
+					</section>
 				</div>
-				<Divider />
-				<section v-if="isColorPickerEnabled">
-					<h5 class="mb-3">Color picker</h5>
-					<input type="color" :value="activeSettings?.primaryColor ?? ''" @change="onColorChange($event)" />
-				</section>
 			</div>
-		</div>
-	</transition>
+		</transition>
+	</div>
 </template>
 
 <script setup lang="ts">
 import _ from 'lodash';
 import { ref, computed } from 'vue';
 import Button from 'primevue/button';
-import { ChartSetting, ChartSettingType } from '@/types/common';
+import RadioButton from 'primevue/radiobutton';
+import { ChartSetting, ChartSettingType, ChartSettingComparison } from '@/types/common';
 import { ChartAnnotation } from '@/types/Types';
 import Divider from 'primevue/divider';
 import TeraInputText from '@/components/widgets/tera-input-text.vue';
@@ -79,7 +105,6 @@ import TeraCheckbox from '@/components/widgets/tera-checkbox.vue';
 const props = defineProps<{
 	activeSettings: ChartSetting | null;
 	annotations?: ChartAnnotation[];
-	comparison?: boolean;
 	/**
 	 * We receives generateAnnotation as a functor from the parent to access the parent scope directly. This allows us to utilize dependencies defined in the parent component without passing them all as props, which can be cumbersome.
 	 * Additionally, it enables us to handle post-generation actions (like resetting loading state or clearing input) after function completion.
@@ -92,24 +117,36 @@ const props = defineProps<{
 const emit = defineEmits(['close', 'update-settings', 'delete-annotation', 'create-annotation']);
 
 // Log scale
-const useLog = computed(() => props.activeSettings?.scale === 'log');
-const isSmallMultiples = computed(() => {
-	const { smallMultiples, selectedVariables } = <ChartSetting>props.activeSettings;
-	return smallMultiples || selectedVariables?.length > 5;
-});
-// const isShareYAxis = computed(() => props.activeSettings?.shareYAxis);
-
+const useLog = computed<boolean>(() => props.activeSettings?.scale === 'log');
 const toggleLogScale = (useLogScale: boolean) => {
 	emit('update-settings', { scale: useLogScale ? 'log' : '' });
 };
-
-const toggleSmallMultiples = (smallMultiples: boolean) => {
-	emit('update-settings', { smallMultiples: !!smallMultiples });
+// Hide in node
+const isHiddenInNode = computed<boolean>(() => !!props.activeSettings?.hideInNode);
+const toggleHideInNode = (hideInNode: boolean) => {
+	emit('update-settings', { hideInNode: !!hideInNode });
 };
 
-// const toggleShareYAxis = (shareYAxis: boolean) => {
-// 	emit('update-settings', { shareYAxis: !!shareYAxis });
-// };
+// === Settings for comparison method ===
+const comparisonSettings = computed(() => props.activeSettings as ChartSettingComparison | null);
+// Small multiples
+const smallMultiplesRadioValue = computed(() =>
+	comparisonSettings.value?.smallMultiples ? 'small-multiples' : 'all-charts'
+);
+const onSmallMultiplesRadioButtonChange = (value: 'all-charts' | 'small-multiples') => {
+	emit('update-settings', { smallMultiples: value === 'small-multiples' });
+};
+// Share Y axis
+const isShareYAxis = computed(() => Boolean(comparisonSettings.value?.shareYAxis));
+const toggleShareYAxis = (value: boolean) => emit('update-settings', { shareYAxis: value });
+// Show before and after
+const showBeforeAfter = computed(() => Boolean(comparisonSettings.value?.showBeforeAfter));
+const toggleShowBeforeAfter = (value: boolean) => emit('update-settings', { showBeforeAfter: value });
+// ======================================
+
+// Normalize
+const normalizeData = computed(() => Boolean(comparisonSettings.value?.normalize));
+const toggleNormalizeData = (value: boolean) => emit('update-settings', { normalize: value });
 
 // Primary color
 const isColorPickerEnabled = computed(() => {
@@ -123,7 +160,7 @@ const onColorChange = (event) => {
 	emit('update-settings', { primaryColor: event.target?.value });
 };
 
-// Chart Annotations
+// ========== Chart Annotations =========
 const chartAnnotations = computed(() => {
 	if (props.annotations === undefined) {
 		return undefined;
@@ -132,7 +169,6 @@ const chartAnnotations = computed(() => {
 });
 const isGeneratingAnnotation = ref(false);
 const generateAnnotationQuery = ref<string>('');
-const showAnnotationInput = ref<Boolean>(false);
 
 const createAnnotation = async () => {
 	if (props.generateAnnotation === undefined || props.activeSettings === null) {
@@ -141,7 +177,6 @@ const createAnnotation = async () => {
 	isGeneratingAnnotation.value = true;
 	const newAnnotation = await props.generateAnnotation(props.activeSettings, generateAnnotationQuery.value);
 	isGeneratingAnnotation.value = false;
-	showAnnotationInput.value = false;
 	generateAnnotationQuery.value = '';
 	emit('create-annotation', newAnnotation);
 };
@@ -150,22 +185,33 @@ const createAnnotationDebounced = _.debounce(createAnnotation, 100);
 
 const cancelGenerateAnnotation = () => {
 	generateAnnotationQuery.value = '';
-	showAnnotationInput.value = false;
 };
+// ======================================
 </script>
 
 <style scoped>
+.chart-settings-panel-anchor {
+	position: fixed;
+	top: 7.5rem;
+	right: var(--gap-8);
+	width: 360px;
+	height: calc(100% - 7.5rem);
+	pointer-events: none;
+	overflow: hidden;
+}
 .chart-settings-panel {
-	position: absolute;
+	position: relative;
+	overflow-y: auto;
 	top: 0;
 	z-index: 3;
 	margin-top: 50px;
-	height: calc(100% - 50px);
+	height: calc(100% - 51px); /* 51px = margin-top + border */
 	width: 100%;
 	background: #fff;
+	border-top-left-radius: var(--border-radius-bigger);
 	left: 2px;
 	border: solid 1px var(--surface-border-light);
-
+	pointer-events: all;
 	&.v-enter-active,
 	&.v-leave-active {
 		transition: left 0.15s ease-out;
@@ -189,6 +235,7 @@ const cancelGenerateAnnotation = () => {
 		gap: var(--gap-4);
 		background-color: rgba(255, 255, 255, 0.8);
 		backdrop-filter: blur(3px);
+		border-top-left-radius: var(--border-radius-bigger);
 		&.shadow {
 			box-shadow: 0 1px 4px 0 rgba(0, 0, 0, 0.1);
 		}
@@ -205,6 +252,13 @@ const cancelGenerateAnnotation = () => {
 	}
 	.content {
 		padding: var(--gap-4);
+		background: var(--surface-0);
+	}
+
+	.items-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gap-2);
 	}
 
 	.annotation-input:deep(main) {

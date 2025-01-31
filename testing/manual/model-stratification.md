@@ -21,7 +21,7 @@ We want to stratified the model by several age groups to simulate how contact ra
 2. Drag and drop the model onto the canvas
 3. Right-click on the canvas to add a `Stratify model` operator under **Modeling**
 4. Connect the output port of the `Model` operator to the input port of the `Stratify model` operator
-5. Click **Edit** on the `Stratify model` operator to specify the stratification action
+5. Click **Open** on the `Stratify model` operator to specify the stratification action
 6. Apply these settings
    1. Name of strata: _age_
    2. Select variables and parameters to stratify: _S, E, I, c_
@@ -30,7 +30,7 @@ We want to stratified the model by several age groups to simulate how contact ra
    5. Allow existing interactions to involve multiple strata: _True_
 7. Click **Stratify**
 8. Expected result:
-   1. `Output - 2`  is available in the output selection dropdown in the top-right corner
+   1. `SEIRHD (stratified age with 18 groups)` is available in the output selection dropdown in the top-right corner
    2. A new model with the same structure as the SEIRHD model appears in the right half of the interface
    3. The states `S, E, I` of the new model have 18 nodes that are circle-packed within them, representing the new stratified states `S_0to4, S_5to9, ...`
 9. Select and double-click the transition `template-2` between the states `E, I` to expand the matrix view of this transition
@@ -59,7 +59,7 @@ We want to stratified the model by several age groups to simulate how contact ra
 2. Drag and drop the `SEIRHD` model onto the canvas
 3. Right-click on the canvas to add a `Stratify model` operator under **Modeling**
 4. Connect the output port of the `Model` operator to the input port of the `Stratify model` operator
-5. Click **Edit** on the `Stratify model` operator to specify the stratification action
+5. Click **Open** on the `Stratify model` operator to specify the stratification action
 6. Apply these settings
    1. Name of strata: _vaccination_
    2. Select variables and parameters to stratify: _S, v_
@@ -80,7 +80,9 @@ model = stratify(
     cartesian_control=False,
     modify_names=True,
     concepts_to_stratify=['S'], #If none given, will stratify all concepts.
+    concepts_to_preserve=None, #If none given, will stratify all concepts.
     params_to_stratify= ['v'], #If none given, will stratify all parameters.
+    params_to_preserve= None, #If none given, will stratify all parameters.
     param_renaming_uses_strata_names = True
 )
 ```
@@ -97,14 +99,14 @@ model = stratify(
 13. Confirm that a new stratified model appears on the right
    1. The model structure is mostly unchanged
    2. Only the state `S` has two stratified states within it: `S_unvaccinated, S_vaccinated`
-   3. One new transition named `template-7` with rate law `S_unvaccinated*p_unvaccinated_vaccinated`
+   3. One new transition named `t_conv_0_unvaccinated_vaccinated` with rate law `S_unvaccinated*p_unvaccinated_vaccinated`
    4. The transition `template-1` is now a `2 x 1` matrix
    5. There are 8 transitions in total
 14. Click **X** to exit this operator
 
 ### 5. Chain-stratify model
 
-Next, let's stratify the model to again to introduce the dependency of the infection and vaccine processes on which vaccine is used. That is, how many people are vaccined by the Pfizer, Moderna, or JJ vaccines and how the rate of infection is modified.
+Next, let's stratify the model again to introduce the dependency of the infection and vaccine processes on which vaccine is used. That is, how many people are vaccined by the Pfizer, Moderna, or JJ vaccines and how the rate of infection is modified.
 
 1. Right-click on the canvas to add another `Stratify model` operator next to the previous one
 2. Connect the output port of the previous `Stratify model` operator to the input port of the new one

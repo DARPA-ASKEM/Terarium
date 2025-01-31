@@ -8,7 +8,7 @@
 				<section>
 					<form @submit.prevent>
 						<div>
-							<label for="new-project-name">Project title* <span>(Required)</span></label>
+							<label for="new-project-name">Project name <span>(Required)</span></label>
 							<Textarea
 								id="new-project-name"
 								rows="1"
@@ -17,6 +17,7 @@
 								placeholder="What do you want to call your project?"
 								required
 								class="w-full"
+								style="min-height: 35px"
 							/>
 						</div>
 						<div>

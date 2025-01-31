@@ -12,17 +12,6 @@
 				class="mb-3"
 			/>
 
-			<label>Select a dataset</label>
-			<Dropdown
-				:model-value="scenario.datasetSpec.id"
-				:options="datasets"
-				option-label="assetName"
-				option-value="assetId"
-				placeholder="Select a dataset"
-				@update:model-value="scenario.setDatasetSpec($event)"
-				class="mb-3"
-			/>
-
 			<!-- TODO: adding intervention policies -->
 			<!-- <label>Select an intervention policy (historical)</label>
 			<Dropdown
@@ -44,21 +33,42 @@
 			@update:model-value="scenario.setFutureInterventionSpec($event)"
 			:disabled="isEmpty(interventionPolicies) || isFetchingModelInformation" /> -->
 
-			<label>Select configuration representing best and generous estimates of the initial conditions</label>
+			<label :class="{ 'disabled-label': isEmpty(sortedConfigurations) || isFetchingModelInformation }"
+				>Select configuration representing best and generous estimates of the initial conditions</label
+			>
 			<Dropdown
 				:model-value="scenario.modelConfigSpec.id"
 				placeholder="Select a configuration"
-				:options="modelConfigurations"
+				:options="sortedConfigurations"
 				option-label="name"
 				option-value="id"
 				@update:model-value="scenario.setModelConfigSpec($event)"
-				:disabled="isEmpty(modelConfigurations) || isFetchingModelInformation"
+				:disabled="isEmpty(sortedConfigurations) || isFetchingModelInformation"
 				:loading="isFetchingModelInformation"
+				class="mb-3"
+			>
+				<template #option="slotProps">
+					<p>
+						{{ slotProps.option.name }} <span class="subtext">({{ formatTimestamp(slotProps.option.createdOn) }})</span>
+					</p>
+				</template>
+			</Dropdown>
+
+			<label>Select a dataset</label>
+			<Dropdown
+				:model-value="scenario.datasetSpec.id"
+				:options="datasets"
+				option-label="assetName"
+				option-value="assetId"
+				placeholder="Select a dataset"
+				@update:model-value="scenario.setDatasetSpec($event)"
 			/>
 		</template>
 
 		<template #outputs>
-			<label>Select an output metric</label>
+			<label :class="{ 'disabled-label': isEmpty(modelStateOptions) || isFetchingModelInformation }"
+				>Select an output metric</label
+			>
 			<MultiSelect
 				:disabled="isEmpty(modelStateOptions) || isFetchingModelInformation"
 				:model-value="scenario.calibrateSpec.ids"
@@ -84,6 +94,7 @@ import { getModel, getModelConfigurationsForModel } from '@/services/model';
 import { isEmpty } from 'lodash';
 import MultiSelect from 'primevue/multiselect';
 import calibrate from '@/assets/svg/template-images/calibration-thumbnail.svg';
+import { sortDatesDesc, formatTimestamp } from '@/utils/date';
 import { SituationalAwarenessScenario } from './situational-awareness-scenario';
 import TeraScenarioTemplate from '../tera-scenario-template.vue';
 import { ScenarioHeader } from '../base-scenario';
@@ -94,7 +105,7 @@ const header: ScenarioHeader = Object.freeze({
 	description:
 		'Calibrates the model to historical data to obtain the best estimate of parameters for the present, then forecasts into the near future.',
 	examples: [
-		'Anticipate the arrival of a new variants.',
+		'Anticipate the arrival of new variants.',
 		'Evaluate the potential impact of growing vaccine hesitancy and declining NPIs.'
 	]
 });
@@ -111,6 +122,10 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits(['save-workflow']);
+
+const sortedConfigurations = computed(() =>
+	[...modelConfigurations.value].sort((a, b) => sortDatesDesc(a.createdOn, b.createdOn))
+);
 
 watch(
 	() => props.scenario.modelSpec.id,
@@ -139,3 +154,8 @@ watch(
 	{ immediate: true }
 );
 </script>
+<style scoped>
+.disabled-label {
+	color: var(--text-color-disabled);
+}
+</style>

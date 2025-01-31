@@ -20,12 +20,13 @@ footer {
 	display: flex;
 	gap: var(--gap-8);
 	grid-area: footer;
-	height: 3rem;
+	height: 2.5rem;
 	justify-content: space-between;
 }
 
 img {
 	margin-left: var(--gap-2);
+	height: 2rem;
 }
 
 nav {

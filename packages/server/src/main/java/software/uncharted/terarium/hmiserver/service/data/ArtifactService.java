@@ -9,7 +9,7 @@ import software.uncharted.terarium.hmiserver.repository.data.ArtifactRepository;
 import software.uncharted.terarium.hmiserver.service.s3.S3ClientService;
 
 @Service
-public class ArtifactService extends TerariumAssetServiceWithoutSearch<Artifact, ArtifactRepository> {
+public class ArtifactService extends TerariumAssetService<Artifact, ArtifactRepository> {
 
 	public ArtifactService(
 		final ObjectMapper objectMapper,

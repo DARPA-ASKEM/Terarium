@@ -46,6 +46,7 @@ let yAxis: d3.Axis<d3.NumberValue>;
 let gX: d3.Selection<SVGGElement, any, null, any>;
 let gY: d3.Selection<SVGGElement, any, null, any>;
 let currentTransform: d3.ZoomTransform;
+let zoom: d3.ZoomBehavior<Element, unknown>;
 
 const width = ref(0);
 const height = ref(0);
@@ -92,6 +93,18 @@ function handleZoomEnd() {
 	}
 }
 
+function setZoom(tx: number, ty: number, k: number) {
+	const svg = d3.select(backgroundLayerRef.value as SVGGElement); // Parent SVG
+	svg
+		.transition()
+		.duration(1500)
+		.call(zoom.transform as any, d3.zoomIdentity.translate(tx, ty).scale(k));
+}
+
+defineExpose({
+	setZoom
+});
+
 function updateDimensions() {
 	// Update dimensions
 	width.value = canvasRef.value?.clientWidth ?? window.innerWidth;
@@ -132,7 +145,7 @@ onMounted(() => {
 	const svgContainer = d3.select(svgRef.value as SVGGElement); // Pan/zoom area
 
 	// Zoom config is applied and event handler
-	const zoom = d3
+	zoom = d3
 		.zoom()
 		.filter((evt: any) => {
 			const classStr = d3.select(evt.target).attr('class') || '';

@@ -17,6 +17,7 @@
 			:field="col.field"
 			:header="col.header"
 			:sortable="true"
+			:style="col.field === columns[0].field ? { width: '16rem' } : {}"
 		/>
 	</DataTable>
 </template>
@@ -89,5 +90,21 @@ onMounted(() => {
 <style scoped>
 .p-datatable {
 	border: 1px solid var(--surface-border);
+	border-radius: var(--border-radius);
+}
+:deep(th) {
+	padding-left: var(--gap-2);
+}
+:deep(th:first-of-type) {
+	border-top-left-radius: var(--border-radius);
+}
+:deep(th:last-of-type) {
+	border-top-right-radius: var(--border-radius);
+}
+:deep(tr:last-of-type td:first-of-type) {
+	border-bottom-left-radius: var(--border-radius);
+}
+:deep(tr:last-of-type td:last-of-type) {
+	border-bottom-right-radius: var(--border-radius);
 }
 </style>

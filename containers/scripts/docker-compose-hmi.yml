@@ -56,8 +56,6 @@ services:
       TGPT_APP_URL: "http://${local_host_name}:3050/beaker/"
       TGPT_TOKEN: "${secret_tgpt_token}"
       TGPT_WS_URL: "ws://${local_host_name}:3050/beaker_ws/"
-      XDD_API-ES-KEY: "${secret_xdd_api_es_key}"
-      XDD_API-KEY: "${secret_xdd_api_key}"
     depends_on:
       postgres:
         condition: service_healthy

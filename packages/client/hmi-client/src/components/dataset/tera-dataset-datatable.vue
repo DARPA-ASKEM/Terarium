@@ -3,8 +3,8 @@
 		<!-- Toggle histograms & column summary charts -->
 		<div class="datatable-toolbar">
 			<span class="datatable-toolbar-item">
-				{{ rawContent.headers.length || 'No' }} columns | {{ rawContent.rowCount || 'No' }} rows
-				{{ rawContent.rowCount != rawContent.csv.length ? '(' + rawContent.csv.length + ' showing)' : '' }}
+				{{ columns?.length || 'No' }} columns | {{ rowCount || 'No' }} rows
+				{{ rowCount != rawContent.csv.length ? '(' + rawContent.csv.length + ' showing)' : '' }}
 			</span>
 			<span class="datatable-toolbar-item" style="margin-left: auto">
 				Show column summaries<InputSwitch v-model="showSummaries" />
@@ -24,6 +24,7 @@
 					@update:model-value="selectedColumns = rawContent.headers.filter((col) => $event.includes(col))"
 					:maxSelectedLabels="1"
 					placeholder="Select columns"
+					filter
 				>
 					<template #value>
 						<span class="columns-dropdown datatable-toolbar-item">
@@ -57,39 +58,59 @@
 				:header="colName"
 				:style="previousHeaders && !previousHeaders.includes(colName) ? 'border-color: green' : ''"
 				sortable
-				:frozen="index == 0"
-				:hidden="selectedColumns.includes(colName) ? false : true"
+				:hidden="!selectedColumns.includes(colName)"
 			>
-				<template #header v-if="!previewMode && !isEmpty(headerStats) && showSummaries">
+				<template #header v-if="!previewMode && showSummaries">
 					<!-- column summary charts below -->
 					<div class="column-summary">
-						<div class="column-summary-row">
+						<div class="column-summary-row" v-if="statistics.get(colName)?.maxValue">
 							<span class="column-summary-label">Max:</span>
-							<span class="column-summary-value">{{ headerStats?.[index].maxValue }}</span>
+							<span class="column-summary-value">{{ statistics.get(colName)?.maxValue }}</span>
 						</div>
 						<Chart
-							v-if="headerStats?.[index].chartData"
+							v-if="statistics.get(colName)?.chartData"
 							class="histogram"
 							type="bar"
 							:height="480"
-							:data="headerStats?.[index].chartData"
+							:width="480"
+							:data="statistics.get(colName)?.chartData"
 							:options="CHART_OPTIONS"
 						/>
-						<div class="column-summary-row max">
+						<div class="column-summary-row max" v-if="statistics.get(colName)?.minValue">
 							<span class="column-summary-label">Min:</span>
-							<span class="column-summary-value">{{ headerStats?.[index].minValue }}</span>
+							<span class="column-summary-value">{{ statistics.get(colName)?.minValue }}</span>
 						</div>
-						<div class="column-summary-row">
+						<div class="column-summary-row" v-if="statistics.get(colName)?.mean">
 							<span class="column-summary-label">Mean:</span>
-							<span class="column-summary-value">{{ headerStats?.[index].mean }}</span>
+							<span class="column-summary-value">{{ statistics.get(colName)?.mean }}</span>
 						</div>
-						<div class="column-summary-row">
+						<div class="column-summary-row" v-if="statistics.get(colName)?.median">
 							<span class="column-summary-label">Median:</span>
-							<span class="column-summary-value">{{ headerStats?.[index].median }}</span>
+							<span class="column-summary-value">{{ statistics.get(colName)?.median }}</span>
 						</div>
-						<div class="column-summary-row">
+						<div class="column-summary-row" v-if="statistics.get(colName)?.sd">
 							<span class="column-summary-label">SD:</span>
-							<span class="column-summary-value">{{ headerStats?.[index].sd }}</span>
+							<span class="column-summary-value">{{ statistics.get(colName)?.sd }}</span>
+						</div>
+						<div class="column-summary-row mt-2" v-if="statistics.get(colName)?.uniqueValues">
+							<span class="column-summary-label">Unique values:</span>
+							<span class="column-summary-value">{{ statistics.get(colName)?.uniqueValues }}</span>
+						</div>
+						<div class="column-summary-row" v-if="statistics.get(colName)?.missingValues">
+							<span class="column-summary-label">Missing values:</span>
+							<span class="column-summary-value">{{ statistics.get(colName)?.missingValues }}</span>
+						</div>
+						<div class="most-common-values-row" v-if="statistics.get(colName)?.most_common">
+							<div class="most-common-values-list">
+								<div
+									v-for="(value, key) in statistics.get(colName)?.most_common || {}"
+									:key="key"
+									class="most-common-value"
+								>
+									<span>{{ key }}</span>
+									<span style="margin-left: auto; text-align: right">{{ value }}</span>
+								</div>
+							</div>
 						</div>
 					</div>
 				</template>
@@ -99,15 +120,15 @@
 </template>
 
 <script setup lang="ts">
-import { isEmpty } from 'lodash';
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch } from 'vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import type { CsvAsset } from '@/types/Types';
+import type { CsvAsset, DatasetColumn, HistogramBin } from '@/types/Types';
 import MultiSelect from 'primevue/multiselect';
 import Button from 'primevue/button';
 import Chart from 'primevue/chart';
 import InputSwitch from 'primevue/inputswitch';
+import { displayNumber } from '@/utils/number';
 
 type ChartData = {
 	labels: string[];
@@ -122,6 +143,19 @@ type ChartData = {
 	}[];
 };
 
+type ColumnStats = {
+	minValue?: string;
+	maxValue?: string;
+	mean?: string;
+	median?: string;
+	sd?: string;
+	bins?: number[];
+	chartData?: ChartData;
+	uniqueValues?: string;
+	missingValues?: number;
+	most_common?: { [index: string]: number };
+};
+
 const props = defineProps<{
 	rawContent: CsvAsset; // Temporary - this is also any in ITypeModel
 	rows?: number;
@@ -129,12 +163,22 @@ const props = defineProps<{
 	previousHeaders?: String[] | null;
 	paginatorPosition?: 'bottom' | 'both' | 'top' | undefined;
 	tableStyle?: String;
+	columns?: DatasetColumn[];
+	rowCount?: number;
 }>();
 
 const CATEGORYPERCENTAGE = 1.0;
 const BARPERCENTAGE = 1.0;
 const MINBARLENGTH = 1;
 const CHART_OPTIONS = {
+	responsive: true,
+	elements: {
+		bar: {
+			borderWidth: 1,
+			borderColor: '#FFFFFF'
+		}
+	},
+	width: 10,
 	indexAxis: 'y',
 	plugins: {
 		legend: {
@@ -147,8 +191,7 @@ const CHART_OPTIONS = {
 			enabled: true,
 			position: 'nearest',
 			displayColors: false,
-			beforeTitle: 'Count:',
-			backgroundColor: '#666666dd'
+			backgroundColor: '#333333dd'
 		}
 	},
 	scales: {
@@ -176,34 +219,20 @@ const CHART_OPTIONS = {
 
 const showSummaries = ref(true);
 const selectedColumns = ref<string[]>(props.rawContent.headers);
-const headerStats = ref<
-	{
-		minValue: number;
-		maxValue: number;
-		mean: number;
-		median: number;
-		sd: number;
-		chartData: ChartData;
-	}[]
->([]);
+const statistics = ref<Map<string, ColumnStats>>(new Map());
 
 // Given the bins for a column set up the object needed for the chart.
-const setBarChartData = (bins: number[]): ChartData => {
+const setBarChartData = (bins: HistogramBin[]): ChartData => {
 	const documentStyle = getComputedStyle(document.documentElement);
-	const dummyLabels: string[] = [];
-	// reverse the bins so that the chart is displayed in the correct order
-	bins.reverse();
-	for (let i = 0; i < bins.length; i++) {
-		dummyLabels.push(i.toString());
-	}
+	const dummyLabels = bins.map((bin) => `[${bin.start}—${bin.end}]`);
 	return {
-		labels: ['Bin 1', 'Bin 2', 'Bin 3', 'Bin 4', 'Bin 5', 'Bin 6', 'Bin 7', 'Bin 8', 'Bin 9', 'Bin 10'].reverse(),
+		labels: dummyLabels,
 		datasets: [
 			{
 				label: 'Count',
 				backgroundColor: documentStyle.getPropertyValue('--primary-color'),
 				hoverBackgroundColor: documentStyle.getPropertyValue('--primary-color-light'),
-				data: bins,
+				data: bins.map((bin) => bin.count),
 				categoryPercentage: CATEGORYPERCENTAGE,
 				barPercentage: BARPERCENTAGE,
 				minBarLength: MINBARLENGTH
@@ -212,26 +241,29 @@ const setBarChartData = (bins: number[]): ChartData => {
 	};
 };
 
-// TODO: We should be using a formatter from number.ts, not sure why we are formatting it like this (ask Yohann when he's back)
-function roundStat(stat: number) {
-	return Math.round(stat * 1000) / 1000;
-}
-
 watch(
-	() => props.rawContent,
-	async () => {
-		await nextTick();
-		headerStats.value =
-			props.rawContent.stats?.map((stat) => ({
-				minValue: roundStat(stat.minValue),
-				maxValue: roundStat(stat.maxValue),
-				mean: roundStat(stat.mean),
-				median: roundStat(stat.median),
-				sd: roundStat(stat.sd),
-				chartData: setBarChartData(stat.bins)
-			})) ?? [];
-		// eslint-disable-next-line
-		props.rawContent.headers.sort();
+	() => props?.columns,
+	(value, oldValue) => {
+		if (!value || value === oldValue) return;
+		const stats = new Map<string, ColumnStats>();
+		value.forEach((column) => {
+			const columnStats: ColumnStats = {};
+			if (column.stats?.numericStats) {
+				columnStats.minValue = displayNumber(column.stats.numericStats.min);
+				columnStats.maxValue = displayNumber(column.stats.numericStats.max);
+				columnStats.mean = displayNumber(column.stats.numericStats.mean);
+				columnStats.median = displayNumber(column.stats.numericStats.median);
+				columnStats.sd = displayNumber(column.stats.numericStats.std_dev);
+				columnStats.chartData = setBarChartData(column.stats.numericStats.histogram_bins);
+				columnStats.uniqueValues = displayNumber(column.stats.numericStats.unique_values);
+			} else if (column.stats?.nonNumericStats) {
+				columnStats.uniqueValues = displayNumber(column.stats.nonNumericStats.unique_values);
+				columnStats.missingValues = column.stats.nonNumericStats.missing_values;
+				columnStats.most_common = column.stats.nonNumericStats.most_common;
+			}
+			stats.set(column.name ?? '', columnStats);
+		});
+		statistics.value = stats;
 	},
 	{ immediate: true }
 );
@@ -287,6 +319,7 @@ watch(
 	width: 100%;
 	margin-top: 0.5rem;
 	grid-area: columnSummary;
+	height: 14rem;
 }
 .column-summary-row {
 	display: flex;
@@ -303,6 +336,25 @@ watch(
 	top: -0.5rem;
 }
 
+.most-common-values-row {
+	font-size: var(--font-caption);
+	font-weight: lighter;
+	color: var(--text-color-subdued);
+	padding-left: 0.5rem;
+	padding-right: 0.5rem;
+	padding-top: 0.5rem;
+}
+.most-common-values-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--gap-1);
+	width: 100%;
+}
+.most-common-value {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+}
 .histogram {
 	height: 100px;
 }

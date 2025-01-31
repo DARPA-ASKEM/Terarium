@@ -63,7 +63,7 @@ async function searchCuriesEntities(query: string): Promise<Array<DKG>> {
 }
 
 /**
- * Hit MIRA to get pairwise similarities between elements referenced by CURIEs in the first list and second list.
+ * Hit MIRA to get pairwise similarities between elements referenced by curies in the first list and second list.
  * @input a List of curies (strings) for each source, and target.
  * @return EntitySimilarityResult[] - The source and target curies and their corresponding cosine_distance
   Sample:
@@ -145,7 +145,7 @@ const autoEntityMapping = async (sourceEntities: Entity[], targetEntities: Entit
 
 	// Join results back with source and target
 	filteredSimilarity.forEach((similarity) => {
-		// Find all Sources assosiated with this similarity
+		// Find all Sources associated with this similarity
 		sourceEntities.forEach((source) => {
 			if (source.groundings?.includes(similarity.source)) {
 				validSources.push({
@@ -156,7 +156,7 @@ const autoEntityMapping = async (sourceEntities: Entity[], targetEntities: Entit
 				});
 			}
 		});
-		// Find all targets assosiated with this similarity
+		// Find all targets associated with this similarity
 		targetEntities.forEach((target) => {
 			if (target.groundings?.includes(similarity.target)) {
 				validTargets.push({
@@ -219,7 +219,7 @@ const autoEntityMapping = async (sourceEntities: Entity[], targetEntities: Entit
 	return result;
 };
 
-// Takes in a list of states and a list of datasetcolumns.
+// Takes in a list of states and a list of dataset columns.
 // Transforms them into generic entities with {id, groundings}
 // Uses autoEntityMapping to determine 1:1 mapping
 // rewrites result in form {modelVariable, datasetVariable}
@@ -239,8 +239,7 @@ const autoCalibrationMapping = async (modelOptions: State[], datasetOptions: Dat
 
 	// Fill targetEntities with datasetOptions
 	datasetOptions.forEach((col) => {
-		const groundings = col.grounding?.identifiers?.map((id) => id.curie);
-		targetEntities.push({ id: col.name, groundings });
+		targetEntities.push({ id: col.name ?? '', groundings: [col.grounding] });
 	});
 
 	const entityResult = await autoEntityMapping(sourceEntities, targetEntities, acceptableDistance);

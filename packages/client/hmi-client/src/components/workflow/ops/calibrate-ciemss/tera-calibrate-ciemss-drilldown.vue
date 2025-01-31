@@ -52,6 +52,7 @@
 									:placeholder="mappingDropdownPlaceholder"
 									v-model="knobs.timestampColName"
 									:options="datasetColumns?.map((ele) => ele.name)"
+									@change="updateTimeline()"
 								/>
 							</div>
 						</div>
@@ -159,14 +160,14 @@
 									<Dropdown
 										id="5"
 										v-model="knobs.method"
-										:options="[CiemssMethodOptions.dopri5, CiemssMethodOptions.euler]"
+										:options="[CiemssMethodOptions.dopri5, CiemssMethodOptions.rk4, CiemssMethodOptions.euler]"
 										@update:model-value="updateState"
 									/>
 								</div>
 								<div class="label-and-input">
 									<label for="num-steps">Solver step size</label>
 									<tera-input-number
-										:disabled="knobs.method !== CiemssMethodOptions.euler"
+										:disabled="![CiemssMethodOptions.rk4, CiemssMethodOptions.euler].includes(knobs.method)"
 										:min="0"
 										v-model="knobs.stepSize"
 									/>
@@ -258,7 +259,13 @@
 					class="p-3"
 					:summary-id="node.state.summaryId"
 				/>
-				<Accordion :active-index="lossActiveIndex" @update:active-index="updateLossTab" class="px-2">
+				<!-- Loss section -->
+				<Accordion
+					v-if="lossValues.length > 0 || isLoading"
+					:active-index="lossActiveIndex"
+					@update:active-index="updateLossTab"
+					class="px-2"
+				>
 					<AccordionTab header="Loss">
 						<!-- Loss chart -->
 						<div ref="lossChartContainer">
@@ -273,47 +280,49 @@
 					</AccordionTab>
 				</Accordion>
 				<div v-if="!isLoading">
-					<section class="pb-3" ref="outputPanel" v-if="modelConfig && csvAsset">
+					<section class="pb-3" v-if="modelConfig && csvAsset">
+						<div class="mx-4" ref="chartWidthDiv"></div>
 						<Accordion multiple :active-index="currentActiveIndicies" class="px-2">
-							<AccordionTab header="Parameter distributions">
+							<!-- Paramater distributions sectin -->
+							<AccordionTab v-if="selectedParameterSettings.length > 0" header="Parameter distributions">
 								<template v-for="setting of selectedParameterSettings" :key="setting.id">
-									<vega-chart
-										v-if="parameterDistributionCharts[setting.id]"
-										expandable
-										:are-embed-actions-visible="true"
-										:visualization-spec="parameterDistributionCharts[setting.id].histogram"
-									>
-										<template v-slot:footer>
-											<table class="distribution-table">
-												<thead>
-													<tr>
-														<th scope="col"></th>
-														<th scope="col">
-															{{ parameterDistributionCharts[setting.id].header[0] }}
-														</th>
-														<th scope="col">
-															{{ parameterDistributionCharts[setting.id].header[1] }}
-														</th>
-													</tr>
-												</thead>
-												<tbody>
-													<tr>
-														<th scope="row">Mean</th>
-														<td>{{ parameterDistributionCharts[setting.id].mean[0] }}</td>
-														<td>{{ parameterDistributionCharts[setting.id].mean[1] }}</td>
-													</tr>
-													<tr>
-														<th scope="row">Variance</th>
-														<td>{{ parameterDistributionCharts[setting.id].variance[0] }}</td>
-														<td>{{ parameterDistributionCharts[setting.id].variance[1] }}</td>
-													</tr>
-												</tbody>
-											</table>
-										</template>
-									</vega-chart>
+									<div class="flex flex-column">
+										<vega-chart
+											v-if="parameterDistributionCharts[setting.id]"
+											expandable
+											:are-embed-actions-visible="true"
+											:visualization-spec="parameterDistributionCharts[setting.id].histogram"
+										/>
+										<table class="distribution-table">
+											<thead>
+												<tr>
+													<th scope="col"></th>
+													<th scope="col">
+														{{ parameterDistributionCharts[setting.id].header[0] }}
+													</th>
+													<th scope="col">
+														{{ parameterDistributionCharts[setting.id].header[1] }}
+													</th>
+												</tr>
+											</thead>
+											<tbody>
+												<tr>
+													<th scope="row">Mean</th>
+													<td>{{ parameterDistributionCharts[setting.id].mean[0] }}</td>
+													<td>{{ parameterDistributionCharts[setting.id].mean[1] }}</td>
+												</tr>
+												<tr>
+													<th scope="row">Variance</th>
+													<td>{{ parameterDistributionCharts[setting.id].variance[0] }}</td>
+													<td>{{ parameterDistributionCharts[setting.id].variance[1] }}</td>
+												</tr>
+											</tbody>
+										</table>
+									</div>
 								</template>
 							</AccordionTab>
-							<AccordionTab header="Interventions over time">
+							<!-- Section: Interventions over time -->
+							<AccordionTab v-if="selectedInterventionSettings.length > 0" header="Interventions over time">
 								<template v-for="setting of selectedInterventionSettings" :key="setting.id">
 									<vega-chart
 										expandable
@@ -322,7 +331,8 @@
 									/>
 								</template>
 							</AccordionTab>
-							<AccordionTab header="Variables over time">
+							<!-- Section: Variables over time -->
+							<AccordionTab v-if="selectedVariableSettings.length > 0" header="Variables over time">
 								<template v-for="setting of selectedVariableSettings" :key="setting.id">
 									<vega-chart
 										expandable
@@ -339,14 +349,32 @@
 									:visualization-spec="errorChart"
 								/>
 							</AccordionTab>
-							<AccordionTab header="Comparison charts">
-								<template v-for="setting of selectedComparisonChartSettings" :key="setting.id">
-									<vega-chart
-										expandable
-										:are-embed-actions-visible="true"
-										:visualization-spec="comparisonCharts[setting.id]"
-									/>
-								</template>
+							<!-- Section: Comparison charts -->
+							<AccordionTab v-if="selectedComparisonChartSettings.length > 0" header="Comparison charts">
+								<div
+									class="flex justify-content-center"
+									v-for="setting of selectedComparisonChartSettings"
+									:key="setting.id"
+								>
+									<div class="flex flex-row flex-wrap" v-if="setting.selectedVariables.length > 0">
+										<vega-chart
+											v-for="(spec, index) of comparisonCharts[setting.id]"
+											:key="index"
+											expandable
+											:are-embed-actions-visible="true"
+											:visualization-spec="spec"
+										/>
+									</div>
+									<div v-else class="empty-state-chart">
+										<img
+											src="@assets/svg/operator-images/simulate-deterministic.svg"
+											alt="Select a variable"
+											draggable="false"
+											height="80px"
+										/>
+										<p class="text-center">Select a variable for comparison</p>
+									</div>
+								</div>
 							</AccordionTab>
 						</Accordion>
 					</section>
@@ -384,6 +412,7 @@
 				</template>
 				<template #content>
 					<div class="output-settings-panel">
+						<!-- Parameter distributions -->
 						<tera-chart-settings
 							:title="'Parameter distributions'"
 							:settings="chartSettings"
@@ -395,6 +424,7 @@
 							@selection-change="updateChartSettings"
 						/>
 						<Divider />
+						<!-- Interventions over time -->
 						<tera-chart-settings
 							:title="'Interventions over time'"
 							:settings="chartSettings"
@@ -406,6 +436,7 @@
 							@selection-change="updateChartSettings"
 						/>
 						<Divider />
+						<!-- Variables over time -->
 						<tera-chart-settings
 							:title="'Variables over time'"
 							:settings="chartSettings"
@@ -419,6 +450,7 @@
 							@selection-change="updateChartSettings"
 						/>
 						<Divider />
+						<!-- Errors -->
 						<tera-chart-settings
 							:title="'Error'"
 							:settings="chartSettings"
@@ -434,6 +466,7 @@
 							@selection-change="updateChartSettings"
 						/>
 						<Divider />
+						<!-- Comparison charts -->
 						<tera-chart-settings
 							:title="'Comparison charts'"
 							:settings="chartSettings"
@@ -443,19 +476,19 @@
 									['state', 'observable', 'parameter'].includes(modelPartTypesMap[c])
 								)
 							"
-							:selected-options="comparisonChartsSettingsSelection"
+							:comparison-selected-options="comparisonChartsSettingsSelection"
 							@open="setActiveChartSettings($event)"
 							@remove="removeChartSettings"
-							@selection-change="comparisonChartsSettingsSelection = $event"
+							@comparison-selection-change="updateComparisonChartSetting"
 						/>
 						<div>
 							<Button
-								:disabled="!comparisonChartsSettingsSelection.length"
 								size="small"
 								text
-								@click="addComparisonChartSettings"
+								@click="addEmptyComparisonChart"
 								label="Add comparison chart"
 								icon="pi pi-plus"
+								class="mt-2"
 							/>
 						</div>
 						<Divider />
@@ -490,13 +523,7 @@ import DataTable from 'primevue/datatable';
 import Dropdown from 'primevue/dropdown';
 import Column from 'primevue/column';
 import TeraInputNumber from '@/components/widgets/tera-input-number.vue';
-import {
-	CalibrateMap,
-	setupDatasetInput,
-	setupCsvAsset,
-	setupModelInput,
-	parseCsvAsset
-} from '@/services/calibrate-workflow';
+import { CalibrateMap, getFileName, setupCsvAsset, setupModelInput } from '@/services/calibrate-workflow';
 import { deleteAnnotation, updateChartSettingsBySelectedVariables } from '@/services/chart-settings';
 import TeraDrilldown from '@/components/drilldown/tera-drilldown.vue';
 import TeraDrilldownSection from '@/components/drilldown/tera-drilldown-section.vue';
@@ -510,7 +537,6 @@ import {
 	ClientEvent,
 	ClientEventType,
 	CsvAsset,
-	DatasetColumn,
 	ModelConfiguration,
 	InterventionPolicy,
 	ModelParameter,
@@ -548,8 +574,10 @@ import { getDataset } from '@/services/dataset';
 import { getCalendarSettingsFromModel } from '@/services/model';
 import { useCharts } from '@/composables/useCharts';
 import { useChartSettings } from '@/composables/useChartSettings';
+import { parseCsvAsset } from '@/utils/csv';
 import type { CalibrationOperationStateCiemss } from './calibrate-operation';
 import { renameFnGenerator, getErrorData, usePreparedChartInputs, getSelectedOutputMapping } from './calibrate-utils';
+import { isInterventionPolicyBlank } from '../intervention-policy/intervention-policy-operation';
 
 const isSidebarOpen = ref(true);
 
@@ -566,7 +594,7 @@ interface BasicKnobs {
 	endTime: number;
 	stepSize: number;
 	learningRate: number;
-	method: string;
+	method: CiemssMethodOptions;
 	timestampColName: string;
 }
 
@@ -622,7 +650,10 @@ const modelParameters = ref<ModelParameter[]>([]);
 
 const isOutputSettingsPanelOpen = ref(false);
 
-const datasetColumns = ref<DatasetColumn[]>();
+const dataset = shallowRef<Dataset | null>(null);
+const datasetColumns = computed(() =>
+	dataset.value?.columns?.filter((col) => col.fileName === currentDatasetFileName.value)
+);
 const csvAsset = shallowRef<CsvAsset | undefined>(undefined);
 const groundTruthData = computed<DataArray>(() => parseCsvAsset(csvAsset.value as CsvAsset));
 
@@ -719,7 +750,13 @@ const isMappingfilled = computed(
 
 const areNodeInputsFilled = computed(() => datasetId.value && modelConfigId.value);
 
-const isRunDisabled = computed(() => !isMappingfilled.value || !areNodeInputsFilled.value);
+const isRunDisabled = computed(
+	() =>
+		!isMappingfilled.value ||
+		!areNodeInputsFilled.value ||
+		isLoading.value ||
+		(!!interventionPolicy.value && isInterventionPolicyBlank(interventionPolicy.value))
+);
 
 const mappingFilledTooltip = computed(() =>
 	!isMappingfilled.value ? 'Must contain a Timestamp column and at least one filled in mapping. \n' : ''
@@ -728,15 +765,17 @@ const nodeInputsFilledTooltip = computed(() =>
 	!areNodeInputsFilled.value ? 'Must a valid dataset and model configuration\n' : ''
 );
 
+const isLoadingTooltip = computed(() => (isLoading.value ? 'Must wait for the current run to finish\n' : ''));
+
 const runButtonMessage = computed(() =>
-	isRunDisabled.value ? `${mappingFilledTooltip.value} ${nodeInputsFilledTooltip.value}` : ''
+	isRunDisabled.value ? `${mappingFilledTooltip.value} ${nodeInputsFilledTooltip.value} ${isLoadingTooltip.value}` : ''
 );
 
 const selectedOutputId = ref<string>();
 const lossChartContainer = ref(null);
 const lossChartSize = useDrilldownChartSize(lossChartContainer);
-const outputPanel = ref(null);
-const chartSize = useDrilldownChartSize(outputPanel);
+const chartWidthDiv = ref(null);
+const chartSize = useDrilldownChartSize(chartWidthDiv);
 
 const groupedInterventionOutputs = computed(() =>
 	_.groupBy(flattenInterventionData(interventionPolicy.value?.interventions ?? []), 'appliedTo')
@@ -774,9 +813,10 @@ const {
 	comparisonChartsSettingsSelection,
 	removeChartSettings,
 	updateChartSettings,
-	addComparisonChartSettings,
 	updateActiveChartSettings,
-	setActiveChartSettings
+	setActiveChartSettings,
+	addEmptyComparisonChart,
+	updateComparisonChartSetting
 } = useChartSettings(props, emit);
 
 const {
@@ -828,7 +868,9 @@ const updateLossChartSpec = (data: string | Record<string, any>[], size: { width
 };
 
 const initDefaultChartSettings = (state: CalibrationOperationStateCiemss) => {
-	const defaultSelectedParam = modelParameters.value.filter((p) => !!p.distribution).map((p) => p.id);
+	// TODO: Determine the most interesting parameters to show to the user.
+	// https://github.com/DARPA-ASKEM/terarium/issues/6284
+	const defaultSelectedParam = [];
 	const mappedModelVariables = mapping.value
 		.filter((c) => ['state', 'observable'].includes(modelPartTypesMap.value[c.modelVariable]))
 		.map((c) => c.modelVariable);
@@ -894,7 +936,11 @@ const runCalibrate = async () => {
 			lr: knobs.value.learningRate,
 			num_iterations: knobs.value.numIterations
 		},
-		timespan: getTimespan({ dataset: csvAsset.value, mapping: mapping.value }),
+		timespan: getTimespan(
+			dataset.value as Dataset,
+			knobs.value.timestampColName,
+			knobs.value.endTime // Default is simulation End Time
+		),
 		engine: 'ciemss'
 	};
 
@@ -909,6 +955,8 @@ const runCalibrate = async () => {
 		state.currentProgress = 0;
 		state.inProgressForecastId = '';
 		state.inProgressPreForecastId = '';
+		state.timestampColName = knobs.value.timestampColName;
+
 		initDefaultChartSettings(state);
 		emit('update-state', state);
 	}
@@ -941,6 +989,12 @@ function addMapping() {
 const updateMapping = () => {
 	const state = _.cloneDeep(props.node.state);
 	state.mapping = mapping.value;
+	emit('update-state', state);
+};
+
+const updateTimeline = () => {
+	const state = _.cloneDeep(props.node.state);
+	state.timestampColName = knobs.value.timestampColName;
 	emit('update-state', state);
 };
 
@@ -1007,13 +1061,11 @@ const initialize = async () => {
 	// dataset input
 	if (datasetId.value) {
 		// Get dataset
-		const dataset: Dataset | null = await getDataset(datasetId.value);
-		if (dataset) {
-			const { filename, datasetOptions } = await setupDatasetInput(dataset);
-			currentDatasetFileName.value = filename;
-			datasetColumns.value = datasetOptions;
+		dataset.value = await getDataset(datasetId.value);
+		if (dataset.value) {
+			currentDatasetFileName.value = getFileName(dataset.value);
 
-			setupCsvAsset(dataset).then((csv) => {
+			setupCsvAsset(dataset.value).then((csv) => {
 				csvAsset.value = csv;
 			});
 		}
@@ -1023,8 +1075,8 @@ const initialize = async () => {
 
 	// look for timestamp col in dataset if its not yet filled in.
 	if (knobs.value.timestampColName === '') {
-		const timeCol = datasetColumns.value?.find((ele) => ele.name.toLocaleLowerCase().startsWith('time'));
-		if (timeCol) {
+		const timeCol = datasetColumns.value?.find((ele) => ele.name?.toLocaleLowerCase().startsWith('time'));
+		if (timeCol && timeCol.name !== undefined) {
 			knobs.value.timestampColName = timeCol.name;
 		}
 	}
@@ -1047,8 +1099,9 @@ onMounted(async () => {
 });
 
 watch(
-	() => knobs.value,
-	async () => {
+	() => ({ ...knobs.value }),
+	(newValue, oldValue) => {
+		if (_.isEqual(newValue, oldValue)) return;
 		const state = _.cloneDeep(props.node.state);
 		state.numIterations = knobs.value.numIterations;
 		state.numSamples = knobs.value.numSamples;
@@ -1237,10 +1290,15 @@ img {
 }
 
 .distribution-table {
+	position: relative;
+	top: -1rem;
+	margin-left: auto;
+	margin-right: auto;
+	margin-bottom: var(--gap-6);
 	width: 100%;
 	border-collapse: collapse;
 	thead {
-		background-color: var(--surface-200);
+		background-color: var(--surface-100);
 	}
 	tr {
 		height: 1.75rem;
@@ -1282,5 +1340,18 @@ img {
 
 input {
 	text-align: left;
+}
+
+.empty-state-chart {
+	display: flex;
+	flex-direction: column;
+	gap: var(--gap-4);
+	justify-content: center;
+	align-items: center;
+	height: 12rem;
+	margin: var(--gap-6);
+	padding: var(--gap-4);
+	background: var(--surface-100);
+	color: var(--text-color-secondary);
 }
 </style>

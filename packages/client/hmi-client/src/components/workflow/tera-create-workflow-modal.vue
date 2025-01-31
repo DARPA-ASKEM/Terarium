@@ -2,14 +2,21 @@
 	<tera-modal class="w-9">
 		<template #default>
 			<div class="grid" style="height: 70vh">
-				<aside class="flex flex-column col-3">
-					<label class="p-text-secondary pb-2">Select a template</label>
-					<div v-for="[id, { name }] in scenarioMap" :key="id" class="flex align-items-center py-1 template-option">
-						<RadioButton :inputId="id" :value="id" v-model="selectedTemplateId" />
-						<label class="pl-2" :for="id">{{ name }}</label>
+				<aside class="fixed-sidebar">
+					<label class="p-text-secondary pb-3">Select a template</label>
+					<div class="template-list">
+						<div
+							v-for="[id, { name }] in scenarioMap"
+							:key="id"
+							class="template-option"
+							:class="{ 'template-option--selected': selectedTemplateId === id }"
+							@click="selectedTemplateId = id"
+						>
+							{{ name }}
+						</div>
 					</div>
 				</aside>
-				<main class="col-9 flex flex-column">
+				<main class="scrollable-content">
 					<component
 						v-if="getScenario()"
 						ref="scenarioComponent"
@@ -38,7 +45,6 @@ import TeraModal from '@/components/widgets/tera-modal.vue';
 import Button from 'primevue/button';
 import { markRaw, nextTick, onMounted, ref } from 'vue';
 import type { Component } from 'vue';
-import RadioButton from 'primevue/radiobutton';
 import { BaseScenario } from '@/components/workflow/scenario-templates/base-scenario';
 import { createWorkflow } from '@/services/workflow';
 import { AssetType } from '@/types/Types';
@@ -57,6 +63,10 @@ import { SensitivityAnalysisScenario } from '@/components/workflow/scenario-temp
 import { DecisionMakingScenario } from '@/components/workflow/scenario-templates/decision-making/decision-making-scenario';
 import { HorizonScanningScenario } from '@/components/workflow/scenario-templates/horizon-scanning/horizon-scanning-scenario';
 import { ValueOfInformationScenario } from '@/components/workflow/scenario-templates/value-of-information/value-of-information-scenario';
+import TeraModelFromLiteratureTemplate from '@/components/workflow/scenario-templates/model-from-literature/tera-model-from-literature-template.vue';
+import { ModelFromLiteratureScenario } from '@/components/workflow/scenario-templates/model-from-literature/model-from-literature-scenario';
+import { CalibrateEnsembleScenario } from '@/components/workflow/scenario-templates/calibrate-ensemble/calibrate-ensemble-scenario';
+import TeraCalibrateEnsembleTemplate from '@/components/workflow/scenario-templates/calibrate-ensemble/tera-calibrate-ensemble-template.vue';
 
 interface ScenarioItem {
 	name: string;
@@ -113,6 +123,22 @@ const scenarioMap = ref(
 				instance: new ValueOfInformationScenario(),
 				component: markRaw(TeraValueOfInformationTemplate)
 			}
+		],
+		[
+			ModelFromLiteratureScenario.templateId,
+			{
+				name: ModelFromLiteratureScenario.templateName,
+				instance: new ModelFromLiteratureScenario(),
+				component: markRaw(TeraModelFromLiteratureTemplate)
+			}
+		],
+		[
+			CalibrateEnsembleScenario.templateId,
+			{
+				name: CalibrateEnsembleScenario.templateName,
+				instance: new CalibrateEnsembleScenario(),
+				component: markRaw(TeraCalibrateEnsembleTemplate)
+			}
 		]
 	])
 );
@@ -160,7 +186,46 @@ onMounted(() => {
 const getScenario = () => scenarioMap.value.get(selectedTemplateId.value) as ScenarioItem;
 </script>
 <style scoped>
-.template-option:first-of-type {
-	margin-bottom: var(--gap-5);
+.fixed-sidebar {
+	position: fixed;
+	top: 2.75rem;
+	width: 25%; /* equivalent to col-3 */
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	overflow-y: auto; /* allows sidebar to scroll if content is too long */
+	padding-right: 1rem;
+}
+.scrollable-content {
+	margin-left: 25%; /* Match the sidebar width */
+	width: 75%; /* equivalent to col-9 */
+	overflow-y: auto;
+	padding-left: 1rem;
+	padding-top: var(--gap-1);
+}
+
+.template-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin-right: 3rem;
+}
+
+.template-option {
+	padding: var(--gap-4) var(--gap-4);
+	border-radius: 4px;
+	background-color: var(--surface-50);
+	cursor: pointer;
+	border-left: 4px solid var(--surface-300);
+	transition: all 0.2s ease;
+}
+
+.template-option:hover {
+	background-color: var(--surface-hover);
+}
+
+.template-option--selected {
+	background-color: var(--surface-highlight);
+	border-left-color: var(--primary-color);
 }
 </style>

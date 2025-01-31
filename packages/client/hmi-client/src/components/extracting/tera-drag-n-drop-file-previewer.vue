@@ -15,27 +15,14 @@
 		</div>
 	</div>
 	<div class="file-preview" scrolling="no">
-		<template v-if="props.isProcessing">
-			<p class="progress-message">Uploading...</p>
-			<div class="card">
-				<ProgressBar :value="props.progress"></ProgressBar>
-			</div>
-		</template>
-		<template v-else-if="props.showError">
+		<template v-if="props.showError">
 			<div>Error Please Try Again</div>
-		</template>
-		<template v-else>
-			<div class="ready">
-				<i class="pi pi-check-circle" />
-				<span>Ready</span>
-			</div>
 		</template>
 	</div>
 </template>
 
 <script setup lang="ts">
 import Button from 'primevue/button';
-import ProgressBar from 'primevue/progressbar';
 
 const props = defineProps({
 	file: {
@@ -58,9 +45,17 @@ const props = defineProps({
 const emit = defineEmits(['remove-file']);
 </script>
 <style scoped>
+.file-title-container {
+	background: var(--surface-50);
+	padding: var(--gap-3);
+	border-radius: var(--border-radius);
+	border-left: solid 4px var(--primary-color);
+	display: flex;
+	justify-content: space-between;
+	gap: var(--gap-2);
+}
 .file-preview {
 	overflow: hidden !important;
-	margin-top: var(--gap-2);
 }
 
 .file-title-container {
@@ -78,6 +73,12 @@ const emit = defineEmits(['remove-file']);
 	display: flex;
 	gap: var(--gap-4);
 	flex-direction: row;
+}
+
+.uploading-container {
+	display: flex;
+	flex-direction: column;
+	gap: var(--gap-2);
 }
 
 .progress-message {

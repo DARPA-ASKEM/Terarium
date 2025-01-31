@@ -46,7 +46,7 @@ public class MdlToStockflowResponseHandler extends TaskResponseHandler {
 				.getParameters()
 				.forEach(param -> {
 					if (param.getName() == null || param.getName().isEmpty()) {
-						param.setName(param.getId());
+						param.setName(param.getConceptReference());
 					}
 				});
 

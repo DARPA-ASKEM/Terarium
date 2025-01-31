@@ -9,6 +9,7 @@
 </template>
 
 <script setup lang="ts">
+import { cloneDeep } from 'lodash';
 import { ref, watch } from 'vue';
 import { WorkflowNode } from '@/types/workflow';
 import TeraOperatorPlaceholder from '@/components/operator/tera-operator-placeholder.vue';
@@ -45,7 +46,11 @@ watch(
 			emit('append-output', {
 				type: StratifyMiraOperation.outputs[0].type,
 				label: modelName ?? 'Default Model',
-				value: modelId
+				value: modelId,
+				state: {
+					strataGroup: cloneDeep(props.node.state.strataGroup),
+					strataCodeHistory: cloneDeep(props.node.state.strataCodeHistory)
+				}
 			});
 		}
 	},

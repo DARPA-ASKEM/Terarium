@@ -1,8 +1,7 @@
 import _ from 'lodash';
 import { DataseriesConfig, ChartConfig } from '@/types/SimulateConfig';
-import type { CsvAsset, TimeSpan } from '@/types/Types';
+import type { CsvAsset, Dataset, TimeSpan } from '@/types/Types';
 import type { WorkflowNode } from '@/types/workflow';
-import { type CalibrateMap } from '@/services/calibrate-workflow';
 import { useProjects } from '@/composables/project';
 
 export const drilldownChartSize = (element: HTMLElement | null) => {
@@ -57,32 +56,15 @@ export const nodeMetadata = (node: WorkflowNode<any>) => ({
 	nodeName: node.displayName
 });
 
-export interface GetTimespanParams {
-	dataset?: CsvAsset;
-	mapping?: CalibrateMap[];
-	timestampColName?: string;
-}
-
-export function getTimespan(params: GetTimespanParams): TimeSpan {
+// Get the min and max value for a column within a dataset.
+// Allow for user to default to a provided end time should our stats fail
+export function getTimespan(dataset: Dataset, timeColName: string, defaultEndTime: number = 90): TimeSpan {
 	let start = 0;
-	let end = 90;
-	// If we have the min/max timestamp available from the csv asset use it
-	if (params.dataset) {
-		let tVar = params.timestampColName ?? 'timestamp';
-		if (params.mapping && !params.timestampColName) {
-			// if there's a mapping for timestamp, then the model variable is guaranteed to be 'timestamp'
-			const tMap = params.mapping.find((m) => m.modelVariable === 'timestamp');
-			if (tMap) {
-				tVar = tMap.datasetVariable;
-			}
-		}
-		let tIndex = params.dataset.headers.indexOf(tVar);
-		// if the timestamp column is not found, default to 0 as this is what is assumed to be the default
-		// timestamp column in the pyciemss backend
-		tIndex = tIndex === -1 ? 0 : tIndex;
-
-		start = params.dataset.stats?.[tIndex].minValue!;
-		end = params.dataset.stats?.[tIndex].maxValue!;
+	let end = defaultEndTime;
+	const stats = dataset.columns?.find((col) => col.name === timeColName)?.stats?.numericStats;
+	if (stats) {
+		start = stats.min;
+		end = stats.max;
 	}
 	return { start, end };
 }

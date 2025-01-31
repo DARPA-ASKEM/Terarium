@@ -17,6 +17,9 @@ public class Intervention {
 	private UUID extractionDocumentId;
 
 	@TSOptional
+	private UUID extractionDatasetId;
+
+	@TSOptional
 	private Integer extractionPage;
 
 	private List<StaticIntervention> staticInterventions = new ArrayList<>();

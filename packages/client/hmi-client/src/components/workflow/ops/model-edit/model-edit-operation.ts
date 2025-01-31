@@ -2,7 +2,7 @@ import { Operation, WorkflowOperationTypes, BaseState } from '@/types/workflow';
 import { NotebookHistory } from '@/services/notebook';
 import editModel from '@assets/svg/operator-images/edit-model.svg';
 
-const DOCUMENTATION_URL = 'https://github.com/DARPA-ASKEM/beaker-kernel/blob/main/docs/contexts_mira_model_edit.md';
+const DOCUMENTATION_URL = 'https://documentation.terarium.ai/modeling/edit-model/';
 
 export interface ModelEditOperationState extends BaseState {
 	notebookHistory: NotebookHistory[];

@@ -13,7 +13,6 @@
 </template>
 
 <script setup lang="ts">
-import { useProjects } from '@/composables/project';
 import { useProjectMenu } from '@/composables/project-menu';
 import { Project } from '@/types/Types';
 import { isEmpty } from 'lodash';
@@ -27,10 +26,9 @@ import useAuthStore from '@/stores/auth';
 
 const props = defineProps<{ project: Project | null }>();
 
-const emit = defineEmits(['copied-project']);
-
 // Triggers modals from tera-common-modal-dialogs.vue to open
-const { isShareDialogVisible, isRemoveDialogVisible, isProjectConfigDialogVisible, menuProject } = useProjectMenu();
+const { isCopyDialogVisible, isShareDialogVisible, isRemoveDialogVisible, isProjectConfigDialogVisible, menuProject } =
+	useProjectMenu();
 
 const isCopying = ref(false);
 
@@ -64,13 +62,7 @@ const copyMenuItem = {
 	label: 'Copy',
 	icon: 'pi pi-clone',
 	command: async () => {
-		if (props.project) {
-			isCopying.value = true;
-			const copiedProject = await useProjects().clone(props.project.id);
-			isCopying.value = false;
-			if (!copiedProject) return;
-			emit('copied-project', copiedProject);
-		}
+		isCopyDialogVisible.value = true;
 	}
 };
 

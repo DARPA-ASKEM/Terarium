@@ -6,7 +6,7 @@
 				<span v-if="name" class="ml-1">{{ '| ' + name }}</span>
 				<template v-if="unit">
 					<label class="ml-auto">Unit:</label>
-					<span class="ml-1">{{ unit }}</span>
+					<span class="ml-1 mr-3">{{ unit }}</span>
 				</template>
 				<template v-if="concept">
 					<label class="ml-6">Concept:</label>
@@ -79,7 +79,7 @@ const props = defineProps<{
 }>();
 
 const otherValueList = computed(() =>
-	getOtherValues(props.modelConfigurations, props.initialId, 'target', 'initialSemanticList')
+	getOtherValues(props.modelConfigurations, props.initialId, 'target', 'initialSemanticList', description)
 );
 
 const emit = defineEmits(['update-expression', 'update-source']);
@@ -123,6 +123,17 @@ onMounted(async () => {
 .initial-entry {
 	border-left: 4px solid var(--surface-300);
 	padding-left: var(--gap-4);
+	padding-right: var(--gap-4);
+	border-radius: var(--border-radius);
+	border: 1px solid var(--surface-border-light);
+	border-left: 4px solid var(--surface-300);
+	background-color: var(--surface-0);
+	transition: all 0.15s;
+	box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.initial-entry:hover {
+	border-left: 4px solid var(--primary-color);
+	background-color: var(--surface-highlight);
 }
 .empty {
 	border-left: 4px solid var(--error-color);
@@ -143,7 +154,7 @@ header {
 main {
 	display: flex;
 	justify-content: space-between;
-	padding-bottom: var(--gap-2);
+	padding-bottom: var(--gap-1);
 }
 
 label {

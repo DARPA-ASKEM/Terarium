@@ -37,7 +37,13 @@
 			</AccordionTab>
 			<AccordionTab header="Data" v-if="!isEmpty(dataset?.fileNames)">
 				<tera-progress-spinner v-if="!rawContent" :font-size="2" is-centered />
-				<tera-dataset-datatable v-else :rows="100" :raw-content="rawContent" />
+				<tera-dataset-datatable
+					v-else
+					:rows="100"
+					:raw-content="rawContent"
+					:columns="dataset?.columns ?? []"
+					:row-count="dataset?.metadata?.['total_rows'] ?? 0"
+				/>
 			</AccordionTab>
 		</Accordion>
 	</tera-asset>
@@ -46,14 +52,7 @@
 <script setup lang="ts">
 import { computed, PropType, ref, watch, onMounted } from 'vue';
 import { cloneDeep, isEmpty, isEqual } from 'lodash';
-import {
-	getRawContent,
-	getClimateDataset,
-	getClimateDatasetPreview,
-	getDataset,
-	getDownloadURL,
-	updateDataset
-} from '@/services/dataset';
+import { getRawContent, getDataset, getDownloadURL, updateDataset } from '@/services/dataset';
 import { AssetType, type CsvAsset, type Dataset } from '@/types/Types';
 import TeraAsset from '@/components/asset/tera-asset.vue';
 import Editor from 'primevue/editor';
@@ -112,8 +111,6 @@ const columnInformation = computed(
 		})) ?? []
 );
 
-const image = ref<string | undefined>(undefined);
-
 function updateColumn(index: number, key: string, value: any) {
 	if (!transientDataset.value?.columns?.[index]) return;
 	if (key === 'unit' || key === 'name') {
@@ -122,13 +119,11 @@ function updateColumn(index: number, key: string, value: any) {
 		}
 		transientDataset.value.columns[index].metadata[key] = value;
 	} else if (key === 'concept') {
-		// Only one identifier is supported for now
 		if (!transientDataset.value.columns[index]?.grounding?.identifiers) {
-			transientDataset.value.columns[index].grounding = { identifiers: [] };
+			transientDataset.value.columns[index].grounding = { identifiers: {} };
 		}
-		// Replaces first element of identifiers' array
-		transientDataset.value.columns[index].grounding?.identifiers?.shift();
-		transientDataset.value.columns[index].grounding?.identifiers?.unshift(value);
+		const curie = (value as string).split(':');
+		transientDataset.value.columns[index].grounding.identifiers[curie[0]] = curie[1];
 	} else {
 		transientDataset.value.columns[index][key] = value;
 	}
@@ -178,20 +173,14 @@ function reset() {
 }
 
 const fetchDataset = async () => {
-	if (props.source === DatasetSource.TERARIUM) {
-		dataset.value = await getDataset(props.assetId);
-	} else if (props.source === DatasetSource.ESGF) {
-		dataset.value = await getClimateDataset(props.assetId);
-	}
+	dataset.value = await getDataset(props.assetId);
 	reset(); // Prepare transientDataset for editing
 
-	if (dataset.value?.esgfId && !image.value) {
-		image.value = await getClimateDatasetPreview(dataset.value.esgfId);
-	}
-
+	// Remove download options from previous dataset
+	optionsMenuItems.value = optionsMenuItems.value.filter((item) => item.label !== 'Download');
 	// Add download options to the ellipsis menu
 	if (dataset.value?.fileNames) {
-		optionsMenuItems.value.push({
+		optionsMenuItems.value.unshift({
 			label: 'Download',
 			icon: 'pi pi-download',
 			items: dataset.value.fileNames.map((fileName) => ({

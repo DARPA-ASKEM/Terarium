@@ -1,6 +1,6 @@
 <template>
 	<header
-		v-if="showHeader"
+		v-if="showHeader && !isDocument"
 		:class="{
 			'overview-banner': pageType === ProjectPages.OVERVIEW,
 			'with-tabs': tabs.length > 1,

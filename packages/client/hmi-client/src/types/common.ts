@@ -1,11 +1,4 @@
-import {
-	AssetType,
-	ClientEventType,
-	ModelGrounding,
-	ProgrammingLanguage,
-	ProgressState,
-	StatusUpdate
-} from '@/types/Types';
+import { AssetType, ClientEventType, Grounding, ProgrammingLanguage, ProgressState, StatusUpdate } from '@/types/Types';
 import { ProjectPages } from './Project';
 
 export interface FeatureConfig {
@@ -35,7 +28,7 @@ export interface ModelConfigTableData {
 	name: string;
 	type: ParamType;
 	description: string;
-	concept: ModelGrounding;
+	concept: Grounding;
 	unit?: string;
 	value: any;
 	source: string;
@@ -183,6 +176,7 @@ export interface NotificationItemStatus {
 
 export enum ChartSettingType {
 	VARIABLE = 'variable',
+	VARIABLE_OBSERVABLE = 'variable-observable',
 	VARIABLE_COMPARISON = 'variable-comparison',
 	VARIABLE_ENSEMBLE = 'variable-ensemble',
 	DISTRIBUTION_COMPARISON = 'distribution-comparison',
@@ -191,7 +185,11 @@ export enum ChartSettingType {
 	SENSITIVITY = 'sensitivity'
 }
 
-export type ChartSetting = ChartSettingBase | ChartSettingEnsembleVariable | ChartSettingSensitivity;
+export type ChartSetting =
+	| ChartSettingBase
+	| ChartSettingEnsembleVariable
+	| ChartSettingSensitivity
+	| ChartSettingComparison;
 
 export interface ChartSettingEnsembleVariable extends ChartSettingBase, ChartSettingEnsembleVariableOptions {
 	type: ChartSettingType.VARIABLE_ENSEMBLE;
@@ -199,6 +197,16 @@ export interface ChartSettingEnsembleVariable extends ChartSettingBase, ChartSet
 
 export interface ChartSettingSensitivity extends ChartSettingBase, ChartSettingSensitivityOptions {
 	type: ChartSettingType.SENSITIVITY;
+}
+
+export interface ChartSettingComparison extends ChartSettingBase {
+	type: ChartSettingType.VARIABLE_COMPARISON;
+	smallMultiples?: boolean;
+	shareYAxis?: boolean;
+	/** If true, also plot the pre-calibration or base simulation (without the intervention) data */
+	showBeforeAfter?: boolean;
+	/** Normalize data by total strata population. Only supported for stratified models */
+	normalize?: boolean;
 }
 
 export interface ChartSettingEnsembleVariableOptions {
@@ -219,6 +227,7 @@ export interface ChartSettingBase {
 	primaryColor?: string;
 	scale?: string;
 	smallMultiples?: boolean;
+	hideInNode?: boolean;
 	shareYAxis?: boolean;
 	showQuantiles?: boolean;
 	quantiles?: number[];

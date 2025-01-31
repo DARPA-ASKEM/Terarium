@@ -13,8 +13,10 @@ const variableMap: Object = {
 const pyodide = await loadPyodide({
 	indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full'
 });
-await pyodide.loadPackage('sympy');
+await pyodide.loadPackage(['sympy', 'numpy', 'pandas']);
 pyodide.runPython('import sympy');
+pyodide.runPython('import numpy as np');
+pyodide.runPython('import pandas as pd');
 pyodide.runPython(
 	'from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application, convert_xor'
 );
@@ -42,6 +44,59 @@ def serialize_expr(expr):
                 "mathml": sympy.mathml(eq),
                 "str": str(eq)
         }
+`);
+
+/**
+ * Calculates sensitivity ranking scores for multiple outcomes based on their relationships with input parameters.
+ *
+ * Algorithm:
+ * 1. Converts input data to pandas DataFrame
+ * 2. For each outcome of interest (ooi):
+ *    - Formats parameter names with 'persistent_' prefix
+ *    - Normalizes parameter and outcome values to [0,1] range
+ *    - Calculates linear regression coefficient between each parameter and outcome
+ *    - Stores coefficient as sensitivity score
+ *
+ * @param {Array<Object>} data - Raw data containing parameters and outcomes
+ * @param {Array<string>} outcomesofInterest - Names of outcome variables to analyze
+ * @param {Array<string>} parametersOfInterest - Names of input parameters to evaluate
+ * @returns {Object} Dictionary with structure {scores_by_ooi: {outcome: {parameter: score}}}
+ *                   where score is the linear regression coefficient indicating sensitivity
+ *
+ * For example: output = get_ranking_scores(data, ['deaths', 'cases'], ['R0', 'gamma'])
+ * output = {
+ *  scores_by_ooi: {
+ * 	deaths: {
+ * 		R0: 0.5,
+ * 		gamma: 0.3
+ * 	},
+ * 	cases: {
+ * 		R0: 0.2,
+ * 		gamma: 0.1
+ * 	}
+ */
+pyodide.runPython(`
+	def get_ranking_scores(data, outcomesofInterest, parametersOfInterest):
+		d1 = pd.DataFrame(data)
+		oois = outcomesofInterest # outcome of interest
+		pois = parametersOfInterest # parameters of interest
+
+		scores_by_ooi = {}
+		for ooi in oois:
+			# Column names for parameters
+			pois_ = [f'persistent_{p}_param' for p in pois]
+
+			poi_scores = {}
+			for p, original_p in zip(pois_, pois):
+					x, y = d1[[p, ooi]].sort_values(by = p).values.transpose()
+					x = (x - y.min()) / ((x.max() - x.min() or 1))
+					y = (y - y.min()) / ((y.max() - y.min() or 1))
+					coef = np.polyfit(x, y, 1)
+					poi_scores[original_p] = coef[0]
+
+			scores_by_ooi[ooi] = poi_scores
+
+		return { "scores_by_ooi": scores_by_ooi }
 `);
 
 // Bootstrap
@@ -194,12 +249,26 @@ const runPython = (code: string) => {
 	return result.toJs();
 };
 
+const getRankingScores = (data: any[], outcomesofInterest: string[], parametersOfInterest: string[]) => {
+	data = pyodide.toPy(data);
+	outcomesofInterest = pyodide.toPy(outcomesofInterest);
+	parametersOfInterest = pyodide.toPy(parametersOfInterest);
+
+	const result: PyProxy = pyodide.runPython(`
+		get_ranking_scores(${data}, ${outcomesofInterest}, ${parametersOfInterest})
+	`);
+
+	const res = result.get('scores_by_ooi').toJs();
+	return res;
+};
+
 const map = new Map<string, Function>();
 map.set('parseExpression', parseExpression);
 map.set('substituteExpression', substituteExpression);
 map.set('evaluateExpression', evaluateExpression);
 map.set('removeExpressions', removeExpressions);
 map.set('runPython', runPython);
+map.set('getRankingScores', getRankingScores);
 
 onmessage = function (e) {
 	const { action, params } = e.data;

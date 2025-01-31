@@ -40,7 +40,6 @@ header {
 
 .content-container > main {
 	overflow-y: auto;
-	padding: var(--gap-4);
 	flex-grow: 1;
 	padding-top: 0;
 	padding-left: 0;

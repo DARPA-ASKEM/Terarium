@@ -118,23 +118,14 @@ export interface ChartAnnotation extends TerariumAsset {
 
 export interface CsvAsset {
     csv: string[][];
-    stats?: CsvColumnStats[];
     headers: string[];
     rowCount: number;
 }
 
-export interface CsvColumnStats {
-    bins: number[];
-    minValue: number;
-    maxValue: number;
-    mean: number;
-    median: number;
-    sd: number;
-}
-
 export interface Grounding extends TerariumEntity {
-    identifiers: DKG[];
-    context?: any;
+    identifiers: { [index: string]: string };
+    context?: { [index: string]: string };
+    modifiers?: { [index: string]: string };
 }
 
 export interface PresignedURL {
@@ -190,16 +181,20 @@ export interface Dataset extends TerariumAsset {
     grounding?: Grounding;
 }
 
-export interface DatasetColumn extends TerariumEntity {
-    name: string;
+export interface DatasetColumn extends TerariumEntity, GroundedSemantic {
+    conceptId?: string;
     fileName: string;
     dataType: ColumnType;
+    stats?: DatasetColumnStats;
     formatStr?: string;
     annotations: string[];
     metadata?: any;
-    grounding?: Grounding;
-    description?: string;
     dataset?: Dataset;
+}
+
+export interface DatasetColumnStats {
+    numericStats: NumericColumnStats;
+    nonNumericStats: NonNumericColumnStats;
 }
 
 export interface DocumentAsset extends TerariumAsset {
@@ -289,10 +284,12 @@ export interface Author {
 }
 
 export interface State extends GroundedSemantic {
+    id: string;
     units?: ModelUnit;
 }
 
 export interface Transition extends GroundedSemantic {
+    id: string;
     input: string[];
     output: string[];
     expression?: string;
@@ -353,7 +350,7 @@ export interface ProvenanceSearchResult {
 
 export interface RegNetBaseProperties {
     name: string;
-    grounding: ModelGrounding;
+    grounding: Grounding;
     rate_constant: any;
 }
 
@@ -375,11 +372,12 @@ export interface RegNetParameter {
     id: string;
     description?: string;
     value?: number;
-    grounding?: ModelGrounding;
+    grounding?: Grounding;
     distribution?: ModelDistribution;
 }
 
 export interface RegNetVertex extends GroundedSemantic {
+    id: string;
     sign: boolean;
     initial?: any;
     rate_constant?: any;
@@ -610,6 +608,7 @@ export interface DynamicIntervention {
 export interface Intervention {
     name: string;
     extractionDocumentId?: string;
+    extractionDatasetId?: string;
     extractionPage?: number;
     staticInterventions: StaticIntervention[];
     dynamicInterventions: DynamicIntervention[];
@@ -756,6 +755,32 @@ export interface Links {
     self: string;
 }
 
+export interface GroundedSemantic {
+    name?: string;
+    description?: string;
+    grounding?: Grounding;
+}
+
+export interface NumericColumnStats {
+    mean: number;
+    median: number;
+    min: number;
+    max: number;
+    quartiles: number[];
+    data_type: string;
+    std_dev: number;
+    unique_values: number;
+    missing_values: number;
+    histogram_bins: HistogramBin[];
+}
+
+export interface NonNumericColumnStats {
+    data_type: string;
+    unique_values: number;
+    most_common: { [index: string]: number };
+    missing_values: number;
+}
+
 export interface DocumentExtraction {
     fileName: string;
     assetType: ExtractionAssetType;
@@ -810,27 +835,14 @@ export interface ModelDistribution {
     parameters: { [index: string]: any };
 }
 
-export interface ModelGrounding {
-    identifiers: { [index: string]: any };
-    context?: { [index: string]: any };
-    modifiers?: any;
-}
-
 export interface ModelUnit {
     expression: string;
     expression_mathml: string;
 }
 
-export interface GroundedSemantic {
-    id: string;
-    name?: string;
-    description?: string;
-    grounding?: ModelGrounding;
-}
-
 export interface Properties {
     name: string;
-    grounding?: ModelGrounding;
+    grounding?: Grounding;
     description?: string;
 }
 
@@ -868,6 +880,12 @@ export interface AuthorityInstance {
     id: number;
     mask: number;
     authority: Authority;
+}
+
+export interface HistogramBin {
+    start: number;
+    end: number;
+    count: number;
 }
 
 export interface OdeSemantics {
@@ -937,12 +955,14 @@ export interface Initial {
 }
 
 export interface ModelParameter extends GroundedSemantic {
+    id: string;
     value?: number;
     distribution?: ModelDistribution;
     units?: ModelUnit;
 }
 
 export interface Observable extends GroundedSemantic {
+    id: string;
     states?: string[];
     units?: ModelUnit;
     expression?: string;
@@ -956,7 +976,6 @@ export interface Variable {
     column: DataColumn[];
     paper: Paper;
     equations: EquationVariable[];
-    dkg_groundings: DKGConcept[];
 }
 
 export interface StatementValue {
@@ -1111,7 +1130,9 @@ export enum ClientEventType {
     TaskGollmEquationsFromImage = "TASK_GOLLM_EQUATIONS_FROM_IMAGE",
     TaskGollmGenerateSummary = "TASK_GOLLM_GENERATE_SUMMARY",
     TaskGollmInterventionsFromDocument = "TASK_GOLLM_INTERVENTIONS_FROM_DOCUMENT",
+    TaskGollmInterventionsFromDataset = "TASK_GOLLM_INTERVENTIONS_FROM_DATASET",
     TaskGollmModelCard = "TASK_GOLLM_MODEL_CARD",
+    TaskGollmDatasetStatistics = "TASK_GOLLM_DATASET_STATISTICS",
     TaskMiraAmrToMmt = "TASK_MIRA_AMR_TO_MMT",
     TaskMiraGenerateModelLatex = "TASK_MIRA_GENERATE_MODEL_LATEX",
     TaskMiraCompareModelsConcepts = "TASK_MIRA_COMPARE_MODELS_CONCEPTS",

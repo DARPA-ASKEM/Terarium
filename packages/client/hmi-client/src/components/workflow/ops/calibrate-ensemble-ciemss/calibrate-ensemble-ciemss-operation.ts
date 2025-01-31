@@ -3,7 +3,7 @@ import { ChartSetting } from '@/types/common';
 import { Operation, WorkflowOperationTypes, BaseState } from '@/types/workflow';
 import calibrateEnsembleCiemss from '@assets/svg/operator-images/calibrate-ensemble-probabilistic.svg';
 
-const DOCUMENTATION_URL = 'https://github.com/ciemss/pyciemss/blob/main/pyciemss/interfaces.py#L156';
+const DOCUMENTATION_URL = 'https://documentation.terarium.ai/simulation/calibrate-ensemble/';
 
 export const speedPreset = Object.freeze({
 	numSamples: 1,
@@ -87,12 +87,12 @@ export const CalibrateEnsembleCiemssOperation: Operation = {
 			configurationWeights: {},
 			timestampColName: '',
 			extra: {
-				solverMethod: speedPreset.method,
-				numParticles: speedPreset.numSamples,
-				numIterations: speedPreset.numIterations,
+				solverMethod: qualityPreset.method,
+				numParticles: qualityPreset.numSamples,
+				numIterations: qualityPreset.numIterations,
 				endTime: 100,
 				stepSize: 1,
-				learningRate: speedPreset.learningRate
+				learningRate: qualityPreset.learningRate
 			},
 			inProgressCalibrationId: '',
 			inProgressForecastId: '',

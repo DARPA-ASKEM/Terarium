@@ -1,23 +1,47 @@
 <template>
-	<div class="p-datatable-wrapper">
-		<div class="matrix-toolbar">
+	<div class="toolbar mb-2">
+		<div v-if="matrixMap && Object.keys(matrixMap).length > 0">
+			<label>Measure</label>
 			<Dropdown
-				v-if="matrixMap && Object.keys(matrixMap).length > 0"
 				:model-value="matrixType"
 				:options="matrixTypes"
 				placeholder="Select matrix type"
 				@update:model-value="(v) => changeMatrix(v)"
 			/>
-
-			<Button
-				@click="clipboardBuffer(clipboardText)"
-				label="Paste"
-				severity="secondary"
-				size="small"
-				:disabled="clipboardText === ''"
+		</div>
+		<div v-if="matrix.length > 1">
+			<label>Rows</label>
+			<MultiSelect
+				v-model="filteredRowNames"
+				:options="matrix.map((r) => r[0].rowCriteria)"
+				:max-selected-labels="2"
+				filter
 			/>
 		</div>
-
+		<div v-if="matrix[0].length > 1">
+			<label>Columns</label>
+			<MultiSelect
+				v-model="filteredColumnNames"
+				:options="matrix[0].map((c) => c.colCriteria)"
+				:max-selected-labels="2"
+				filter
+			/>
+		</div>
+		<Button
+			@click="clipboardBuffer(clipboardText)"
+			label="Paste"
+			class="ml-auto"
+			severity="secondary"
+			v-tooltip.left="{
+				value:
+					filteredRowNames.length !== matrix.length || filteredColumnNames.length !== matrix[0].length
+						? `Hidden rows/columns won't be ignored.`
+						: ''
+			}"
+			:disabled="clipboardText === ''"
+		/>
+	</div>
+	<div class="p-datatable-wrapper">
 		<div
 			v-if="!isEmpty(matrix)"
 			class="p-datatable p-component p-datatable-scrollable p-datatable-responsive-scroll p-datatable-gridlines p-datatable-grouped-header stratified-value-matrix"
@@ -26,40 +50,44 @@
 				<thead v-if="matrix[0].length > 0" class="p-datatable-thead">
 					<tr>
 						<th v-if="matrix.length > 0" class="choose-criteria">&nbsp;</th>
-						<th v-for="(row, rowIdx) in matrix[0]" :key="rowIdx">{{ row.colCriteria }}</th>
+						<th
+							v-for="firstRow in matrix[0].filter(({ colCriteria }) => filteredColumnNames.includes(colCriteria))"
+							:key="firstRow.col"
+						>
+							{{ firstRow.colCriteria }}
+						</th>
 					</tr>
 				</thead>
 				<tbody class="p-datatable-tbody">
-					<tr v-for="(row, rowIdx) in matrix" :key="rowIdx">
+					<tr v-for="row in matrix.filter((r) => filteredRowNames.includes(r[0].rowCriteria))" :key="row[0].row">
 						<!-- Row label -->
-						<td v-if="matrix.length > 0" class="p-frozen-column">
+						<td v-if="matrix.length > 0" class="p-frozen-column" style="position: sticky; left: 0; background: white">
 							{{ row[0].rowCriteria }}
 						</td>
-
 						<td
-							v-for="(cell, colIdx) in row"
-							:key="colIdx"
+							v-for="cell in row.filter(({ colCriteria }) => filteredColumnNames.includes(colCriteria))"
+							:key="`${cell.row}-${cell.col}`"
 							tabindex="0"
 							:class="{
-								'is-editing': editableCellStates[rowIdx][colIdx],
+								'is-editing': editableCellStates[cell.row][cell.col],
 								'n-a-cell': !cell.content.id
 							}"
-							@keyup.enter="onEnterValueCell(cell.content.id, rowIdx, colIdx)"
-							@click="onEnterValueCell(cell.content.id, rowIdx, colIdx)"
+							@keyup.enter="onEnterValueCell(cell.content.id, cell.row, cell.col)"
+							@click="onEnterValueCell(cell.content.id, cell.row, cell.col)"
 						>
 							<section v-if="cell.content.id" class="flex flex-column">
 								<InputText
-									v-if="editableCellStates[rowIdx][colIdx]"
+									v-if="editableCellStates[cell.row][cell.col]"
 									class="cell-input"
 									:class="stratifiedMatrixType !== StratifiedMatrix.Initials && 'big-cell-input'"
 									v-model.lazy="valueToEdit"
 									v-focus
-									@focusout="updateCellValue(cell.content.id, rowIdx, colIdx)"
-									@keyup.stop.enter="updateCellValue(cell.content.id, rowIdx, colIdx)"
+									@focusout="updateCellValue(cell.content.id, cell.row, cell.col)"
+									@keyup.stop.enter="updateCellValue(cell.content.id, cell.row, cell.col)"
 								/>
-								<div class="w-full" :class="{ 'hide-content': editableCellStates[rowIdx][colIdx] }">
+								<div class="w-full" :class="{ 'hide-content': editableCellStates[cell.row][cell.col] }">
 									<div
-										class="subdue mb-1 flex align-items-center gap-1 w-full justify-content-between"
+										class="subdue text-sm mb-1 flex align-items-center gap-1 w-full justify-content-between"
 										v-if="stratifiedMatrixType !== StratifiedMatrix.Initials"
 									>
 										{{ cell?.content.id }}
@@ -74,11 +102,7 @@
 											/>
 											-->
 									</div>
-									<div
-										v-if="!isReadOnly"
-										class="mathml-container"
-										v-html="expressionMap[rowIdx + ':' + colIdx] ?? '...'"
-									/>
+									<div class="mathml-container" v-html="expressionMap[cell.row + ':' + cell.col] ?? '...'" />
 								</div>
 							</section>
 							<span v-else class="subdue">n/a</span>
@@ -97,6 +121,7 @@ import { pythonInstance } from '@/python/PyodideController';
 import InputText from 'primevue/inputtext';
 import Dropdown from 'primevue/dropdown';
 import Button from 'primevue/button';
+import MultiSelect from 'primevue/multiselect';
 import { StratifiedMatrix } from '@/types/Model';
 import type { MiraMatrix, MiraModel, MiraTemplateParams } from '@/model-representation/mira/mira-common';
 import { createParameterMatrix, createInitialMatrix, collapseTemplates } from '@/model-representation/mira/mira';
@@ -123,6 +148,9 @@ const matrixType = ref(props.matrixType || 'subjectOutcome');
 const matrixMap = ref<{ [key: string]: MiraMatrix }>({});
 const matrix = ref<MiraMatrix>([]);
 
+const filteredRowNames = ref<string[]>([]);
+const filteredColumnNames = ref<string[]>([]);
+
 const currentMatrixtype = ref(props.matrixType || '');
 
 const valueToEdit = ref('');
@@ -143,31 +171,22 @@ let timerId = -1;
 const clipboardText = ref('');
 const updateByMatrixBulk = (matrixToUpdate: MiraMatrix, text: string) => {
 	const parseResult = dsvParse(text);
-	const updateList: { id: string; value: number }[] = [];
+	const updateList: { id: string; value: string | number }[] = [];
 
 	matrixToUpdate.forEach((row) => {
 		row.forEach(async (matrixEntry) => {
-			// If we have label information, use them as they may be more accurate, otherwise use indices
-			if (parseResult.hasColLabels && parseResult.hasRowLabels) {
-				const match = parseResult.entries.find(
-					(entry) => entry.rowLabel === matrixEntry.rowCriteria && entry.colLabel === matrixEntry.colCriteria
-				);
-				if (match) {
-					updateList.push({
-						id: matrixEntry.content.id,
-						value: match.value
-					});
-				}
-			} else {
-				const match = parseResult.entries.find(
-					(entry) => entry.rowIdx === matrixEntry.row && entry.colIdx === matrixEntry.col
-				);
-				if (match) {
-					updateList.push({
-						id: matrixEntry.content.id,
-						value: match.value
-					});
-				}
+			const match = parseResult.entries.find((entry) =>
+				// If we have label information, use them as they may be more accurate, otherwise use indices
+				parseResult.hasColLabels && parseResult.hasRowLabels
+					? entry.rowLabel === matrixEntry.rowCriteria && entry.colLabel === matrixEntry.colCriteria
+					: entry.rowIdx === matrixEntry.row && entry.colIdx === matrixEntry.col
+			);
+			if (match) {
+				updateList.push({
+					id: matrixEntry.content.id,
+					// Number types should be passed if its a parameter matrix otherwise they should be strings
+					value: props.stratifiedMatrixType === StratifiedMatrix.Parameters ? match.value : match.value.toString()
+				});
 			}
 		});
 	});
@@ -189,9 +208,15 @@ const clipboardBuffer = (text: string) => {
 	updateByMatrixBulk(matrix.value, text);
 };
 
+function prepareFilters() {
+	filteredRowNames.value = matrix.value.map((r) => r[0].rowCriteria);
+	filteredColumnNames.value = matrix.value[0].map((c) => c.colCriteria);
+}
+
 const changeMatrix = (v: string) => {
 	matrixType.value = v;
 	matrix.value = matrixMap.value[v];
+	prepareFilters();
 };
 
 // Makes cell inputs focus once they appear
@@ -298,10 +323,14 @@ onUnmounted(() => {
 	window.clearInterval(timerId);
 });
 
+// Prepares filtered rows/cols when the matrix is assigned for the first time
+watch(matrix, () => prepareFilters(), { once: true });
+
 watch(
 	() => [matrix.value, props.shouldEval],
 	async () => {
 		if (!matrix.value) return;
+
 		resetEditState();
 		expressionMap.value = {};
 
@@ -343,14 +372,24 @@ watch(
 </script>
 
 <style scoped>
+.p-datatable-wrapper {
+	/* Make the height of the table the remainder of the .content section in the modal before it starts to overflow */
+	max-height: calc(70vh - 4.5rem);
+	overflow: auto;
+}
+
 .p-datatable {
 	max-width: 80vw;
 }
 
 .p-datatable .p-datatable-thead > tr > th.choose-criteria {
 	padding: 0;
-	background: var(--surface-ground);
-	border: none;
+	background: var(--surface-0);
+	border-top: none;
+	border-left: none;
+	position: sticky;
+	left: 0;
+	z-index: 2;
 }
 
 .p-datatable .p-datatable-thead > tr > th.choose-criteria {
@@ -359,6 +398,10 @@ watch(
 
 .p-datatable-scrollable .p-frozen-column:first-child {
 	padding-right: 1rem;
+}
+
+.p-multiselect {
+	max-width: 15rem;
 }
 
 .p-datatable-scrollable .p-frozen-column {
@@ -379,14 +422,17 @@ watch(
 	justify-content: space-between;
 	align-items: center;
 }
+
 .n-a-cell {
 	background-color: var(--surface-b);
 }
+
 .hide-content {
 	visibility: hidden;
 	height: 0px;
 	padding-left: 2rem;
 }
+
 .cell-input {
 	padding-left: var(--gap-2);
 	padding-right: var(--gap-4);
@@ -404,11 +450,13 @@ watch(
 	width: 100%;
 	text-align: right;
 }
+
 .mathml-container:deep(mn) {
 	font-family: var(--font-family);
 	font-feature-settings: 'tnum';
 	text-align: right !important;
 }
+
 .p-datatable-scrollable .p-frozen-column {
 	padding-right: 1rem;
 }
@@ -425,16 +473,27 @@ watch(
 .controllers {
 	font-size: var(--font-caption);
 }
-section {
+
+.toolbar {
 	display: flex;
 	justify-content: space-between;
+	position: sticky;
+	gap: var(--gap-12);
+	height: 4.5rem;
+
+	& > div {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gap-1);
+	}
+
+	& > .p-button {
+		align-self: center;
+	}
 }
 
-.matrix-toolbar {
-	display: flex;
-	justify-content: space-between;
-}
-.matrix-toolbar Button {
-	margin-bottom: var(--gap-4);
+.p-datatable-thead {
+	position: sticky;
+	background: white;
 }
 </style>

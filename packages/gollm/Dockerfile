@@ -7,7 +7,7 @@ FROM python:3.11-slim-bookworm AS gollm_taskrunner_builder
 # These deps are installed only for use during local development
 
 # Install OpenJDK
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install --assume-yes --no-install-recommends \
 	wget  \
   openjdk-17-jdk-headless && \
 	rm -rf /var/lib/apt/lists/*
@@ -34,7 +34,7 @@ FROM python:3.11-slim-bookworm
 WORKDIR /
 
 # Install OpenJDK JRE
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install --assume-yes --no-install-recommends \
 	wget  \
   openjdk-17-jre-headless && \
 	rm -rf /var/lib/apt/lists/*
@@ -46,12 +46,12 @@ COPY --from=gollm_taskrunner_builder /taskrunner/build/libs/*.jar /taskrunner.ja
 COPY ./packages/taskrunner/setup.py /taskrunner/setup.py
 COPY ./packages/taskrunner/taskrunner.py /taskrunner/taskrunner.py
 WORKDIR /taskrunner
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir --editable .
 
 # Install GoLLM tasks
 COPY ./packages/gollm /gollm
 WORKDIR /gollm
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir --editable .
 
 WORKDIR /
 

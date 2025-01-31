@@ -15,8 +15,7 @@ import software.uncharted.terarium.hmiserver.service.s3.S3ClientService;
 import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
 
 @Service
-public class NotebookSessionService
-	extends TerariumAssetServiceWithoutSearch<NotebookSession, NotebookSessionRepository> {
+public class NotebookSessionService extends TerariumAssetService<NotebookSession, NotebookSessionRepository> {
 
 	public NotebookSessionService(
 		final ObjectMapper objectMapper,

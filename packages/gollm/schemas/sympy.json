@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "equations": {
+      "type": "array",
+      "description": "A list of equations.",
+      "items": {
+        "type": "string",
+        "description": "A SymPy representation of an equation."
+      }
+    }
+  },
+  "required": [
+    "equations"
+  ],
+  "additionalProperties": false
+}

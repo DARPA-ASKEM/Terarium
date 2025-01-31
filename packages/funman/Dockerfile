@@ -7,7 +7,7 @@ FROM ghcr.io/darpa-askem/funman-base:latest AS funman_taskrunner_builder
 # These deps are installed only for use during local development
 
 # Install Python
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install --assume-yes --no-install-recommends \
 	openjdk-17-jdk-headless \
 	gcc \
 	git \
@@ -48,7 +48,7 @@ WORKDIR /
 
 # Install OpenJDK JRE
 RUN apt-get update && \
-	apt-get install -y --no-install-recommends \
+	apt-get install --assume-yes --no-install-recommends \
 	openjdk-17-jre-headless && \
 	rm -rf /var/lib/apt/lists/*
 
@@ -67,13 +67,13 @@ RUN pip install --no-cache-dir . && \
 COPY ./packages/taskrunner/setup.py /taskrunner/setup.py
 COPY ./packages/taskrunner/taskrunner.py /taskrunner/taskrunner.py
 WORKDIR /taskrunner
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir --editable .
 
 # Install funman tasks
 COPY ./packages/funman /funman_tasks
 
 WORKDIR /funman_tasks
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir --editable .
 
 WORKDIR /
 CMD ["java", "-jar", "taskrunner.jar"]

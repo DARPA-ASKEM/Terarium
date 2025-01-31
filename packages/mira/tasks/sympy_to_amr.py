@@ -81,10 +81,11 @@ def main():
             param.value = 0.0
     
         # Ensure every state variable has an initial condition parameter
-        mmt.initials = mmt.initials | {c: Initial(concept = concept, expression = safe_parse_expr(f'{c}0')) for c, concept in mmt.get_concepts_name_map().items()}
+        mmt.initials = mmt.initials | {c: Initial(concept = concept, expression = safe_parse_expr(f'0.0')) for c, concept in mmt.get_concepts_name_map().items()}
+        # mmt.initials = mmt.initials | {c: Initial(concept = concept, expression = safe_parse_expr(f'{c}0')) for c, concept in mmt.get_concepts_name_map().items()}
     
         # Set default values for the initial condition parameters
-        mmt.parameters = mmt.parameters | {f'{c}0': Parameter(name = f'{c}0', display_name = f'{c}0', description = f'Initial value of state variable "{c}"', value = 0.0) for c in mmt.get_concepts_name_map().keys()}
+        # mmt.parameters = mmt.parameters | {f'{c}0': Parameter(name = f'{c}0', display_name = f'{c}0', description = f'Initial value of state variable "{c}"', value = 0.0) for c in mmt.get_concepts_name_map().keys()}
 
         # =======================
 

@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.experimental.Accessors;
 import org.hibernate.annotations.Type;
 import software.uncharted.terarium.hmiserver.annotations.TSIgnore;
 import software.uncharted.terarium.hmiserver.annotations.TSModel;
@@ -19,7 +18,6 @@ import software.uncharted.terarium.hmiserver.annotations.TSModel;
 @EqualsAndHashCode(callSuper = true)
 @Data
 @TSModel
-@Accessors
 @Entity
 public class ObservableSemantic extends Semantic {
 

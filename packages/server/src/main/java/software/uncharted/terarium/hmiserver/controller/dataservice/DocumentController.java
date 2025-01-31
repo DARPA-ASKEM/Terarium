@@ -25,7 +25,6 @@ import org.apache.http.entity.StringEntity;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -88,12 +87,6 @@ public class DocumentController {
 	final ObjectMapper objectMapper;
 	final ExtractionService extractionService;
 	final EmbeddingService embeddingService;
-
-	@Value("${xdd.api-key}")
-	String apikey;
-
-	@Value("${xdd.api-es-key}")
-	String api_es_key;
 
 	@PostMapping
 	@Secured(Roles.USER)

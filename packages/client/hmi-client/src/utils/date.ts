@@ -118,7 +118,7 @@ export function getTimePointString(
 	options: { startDate?: Date; calendarSettings?: CalendarSettings }
 ): string {
 	if (!options.startDate) {
-		return `${timePoint.toString()} day.`;
+		return `${timePoint?.toString()} day.`;
 	}
 
 	const view = options.calendarSettings?.view ?? CalendarDateType.DATE;

@@ -4,7 +4,7 @@ import { ProgrammingLanguageVersion } from '@/types/common';
 import { Operation, WorkflowOperationTypes, BaseState } from '@/types/workflow';
 import transformDataset from '@assets/svg/operator-images/transform-dataset.svg';
 
-const DOCUMENTATION_URL = 'https://pandas.pydata.org/docs/user_guide/index.html#user-guide';
+const DOCUMENTATION_URL = 'https://documentation.terarium.ai/datasets/transform-dataset/';
 
 export interface DatasetTransformerState extends BaseState {
 	datasetId: string | null;

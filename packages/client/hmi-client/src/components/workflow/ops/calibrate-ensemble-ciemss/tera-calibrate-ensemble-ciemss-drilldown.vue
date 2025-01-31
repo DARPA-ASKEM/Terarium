@@ -149,13 +149,15 @@
 										<label>Solver method</label>
 										<Dropdown
 											v-model="knobs.extra.solverMethod"
-											:options="[CiemssMethodOptions.dopri5, CiemssMethodOptions.euler]"
+											:options="[CiemssMethodOptions.dopri5, CiemssMethodOptions.rk4, CiemssMethodOptions.euler]"
 										/>
 									</div>
 									<div class="label-and-input">
 										<label for="num-steps">Solver step size</label>
 										<tera-input-number
-											:disabled="knobs.extra.solverMethod !== CiemssMethodOptions.euler"
+											:disabled="
+												![CiemssMethodOptions.rk4, CiemssMethodOptions.euler].includes(knobs.extra.solverMethod)
+											"
 											:min="0"
 											v-model="knobs.extra.stepSize"
 										/>
@@ -345,7 +347,7 @@ import TeraInputNumber from '@/components/widgets/tera-input-number.vue';
 import AccordionTab from 'primevue/accordiontab';
 import Accordion from 'primevue/accordion';
 import Dropdown from 'primevue/dropdown';
-import { setupDatasetInput, setupCsvAsset, parseCsvAsset } from '@/services/calibrate-workflow';
+import { getFileName, setupCsvAsset } from '@/services/calibrate-workflow';
 import TeraDrilldown from '@/components/drilldown/tera-drilldown.vue';
 import TeraDrilldownSection from '@/components/drilldown/tera-drilldown-section.vue';
 import TeraSaveDatasetFromSimulation from '@/components/dataset/tera-save-dataset-from-simulation.vue';
@@ -378,6 +380,7 @@ import { useChartSettings } from '@/composables/useChartSettings';
 import { deleteAnnotation, updateChartSettingsBySelectedVariables } from '@/services/chart-settings';
 import { DataArray } from '@/utils/stats';
 import { GroupedDataArray } from '@/services/charts';
+import { parseCsvAsset } from '@/utils/csv';
 import {
 	CalibrateEnsembleCiemssOperationState,
 	CalibrateEnsembleMappingRow,
@@ -389,12 +392,13 @@ import {
 	updateLossChartSpec,
 	getLossValuesFromSimulation,
 	formatCalibrateModelConfigurations,
-	getSelectedOutputEnsembleMapping,
+	getChartEnsembleMapping,
 	fetchOutputData,
 	buildChartData,
 	getEnsembleErrorData,
 	EnsembleErrorData,
-	fetchModelConfigurations
+	fetchModelConfigurations,
+	setStateToModelConfigMap
 } from './calibrate-ensemble-util';
 
 const props = defineProps<{
@@ -455,15 +459,23 @@ const isRunInProgress = computed(() => Boolean(inProgressCalibrationId.value || 
 
 const datasetId = computed(() => props.node.inputs[0].value?.[0] as string | undefined);
 const currentDatasetFileName = ref<string>();
-const datasetColumnNames = ref<string[]>();
+const datasetColumnNames = computed(
+	() =>
+		dataset.value?.columns?.filter((col) => col.fileName === currentDatasetFileName.value).map((col) => col.name) ??
+		([] as string[])
+);
 // Loss Chart:
 const lossChartRef = ref<InstanceType<typeof VegaChart>>();
 const lossChartSpec = ref();
 const lossValues = ref<{ [key: string]: number }[]>([]);
 const LOSS_CHART_DATA_SOURCE = 'lossData';
 // Model:
+const modelConfigIds = computed(() =>
+	props.node.inputs.filter((input) => input.type === 'modelConfigId' && input.value).map((input) => input.value?.[0])
+);
 const listModelLabels = ref<string[]>([]);
 const allModelConfigurations = ref<ModelConfiguration[]>([]);
+const stateToModelConfigMap = ref<{ [key: string]: string[] }>({});
 
 const tableHeaders = computed(() => {
 	const headers = ['Ensemble model'];
@@ -476,6 +488,7 @@ const tableHeaders = computed(() => {
 // List of each observible + state for each model.
 const allModelOptions = ref<any[][]>([]);
 
+const dataset = shallowRef<Dataset | null>(null);
 const csvAsset = shallowRef<CsvAsset | undefined>(undefined);
 
 const onSelection = (id: string) => {
@@ -583,10 +596,11 @@ const runEnsemble = async () => {
 
 	const calibratePayload: EnsembleCalibrationCiemssRequest = {
 		modelConfigs: formatCalibrateModelConfigurations(knobs.value.ensembleMapping, knobs.value.configurationWeights),
-		timespan: getTimespan({
-			dataset: csvAsset.value,
-			timestampColName: knobs.value.timestampColName
-		}),
+		timespan: getTimespan(
+			dataset.value as Dataset,
+			knobs.value.timestampColName,
+			knobs.value.extra.endTime // Default is simulation End Time
+		),
 		dataset: {
 			id: datasetId.value,
 			filename: currentDatasetFileName.value,
@@ -614,6 +628,7 @@ const runEnsemble = async () => {
 };
 
 onMounted(async () => {
+	stateToModelConfigMap.value = await setStateToModelConfigMap(modelConfigIds.value as string[]);
 	const configs = await fetchModelConfigurations(props.node.inputs);
 	if (!configs) return;
 	allModelConfigurations.value = configs.allModelConfigurations;
@@ -622,12 +637,11 @@ onMounted(async () => {
 	// dataset input
 	if (datasetId.value) {
 		// Get dataset
-		const dataset: Dataset | null = await getDataset(datasetId.value);
-		if (dataset) {
-			const { filename, datasetOptions } = await setupDatasetInput(dataset);
-			currentDatasetFileName.value = filename;
-			datasetColumnNames.value = datasetOptions?.map((ele) => ele.name);
-			setupCsvAsset(dataset).then((csv) => {
+		dataset.value = await getDataset(datasetId.value);
+		if (dataset.value) {
+			currentDatasetFileName.value = getFileName(dataset.value);
+
+			setupCsvAsset(dataset.value).then((csv) => {
 				csvAsset.value = csv;
 			});
 		}
@@ -659,7 +673,7 @@ const outputData = ref<{
 } | null>(null);
 const groundTruthData = computed<DataArray>(() => parseCsvAsset(csvAsset.value as CsvAsset));
 const chartSize = useDrilldownChartSize(chartWidthDiv);
-const selectedOutputMapping = computed(() => getSelectedOutputEnsembleMapping(props.node));
+const selectedOutputMapping = computed(() => getChartEnsembleMapping(props.node, stateToModelConfigMap.value));
 const {
 	activeChartSettings,
 	chartSettings,
@@ -697,7 +711,9 @@ const errorData = computed<EnsembleErrorData>(() =>
 	)
 );
 
-const ensembleVariables = computed(() => getSelectedOutputEnsembleMapping(props.node, false).map((d) => d.newName));
+const ensembleVariables = computed(() =>
+	getChartEnsembleMapping(props.node, stateToModelConfigMap.value, false).map((d) => d.newName)
+);
 const ensembleVariableCharts = useEnsembleVariableCharts(selectedEnsembleVariableSettings, groundTruthData);
 const weightsDistributionCharts = useWeightsDistributionCharts();
 const { errorCharts, onExpandErrorChart } = useEnsembleErrorCharts(selectedErrorVariableSettings, errorData);

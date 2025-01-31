@@ -90,6 +90,15 @@ export interface BaseState {
 	summaryId?: string;
 }
 
+export interface WorkflowAnnotation {
+	id: string;
+	type: string;
+	x: number;
+	y: number;
+	textSize: number;
+	content: string;
+}
+
 // Node definition in the workflow
 // This is the graphical operation of the operation defined in operationType
 export interface WorkflowNode<S> {
@@ -166,6 +175,7 @@ export interface Workflow {
 	nodes: WorkflowNode<any>[];
 	edges: WorkflowEdge[];
 
+	annotations?: { [key: string]: WorkflowAnnotation };
 	scenario?: any;
 }
 

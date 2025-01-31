@@ -8,6 +8,7 @@
 			placeholder="Select variables to display"
 			@update:model-value="updateSelectedVariable"
 			filter
+			autoFilterFocus
 			style="max-width: 100%"
 		>
 			<template v-slot:value>

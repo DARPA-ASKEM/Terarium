@@ -165,7 +165,7 @@
 		</div>
 		<katex-element
 			class="expression-constraint"
-			v-else-if="config.constraintType !== ConstraintType.Following"
+			v-else-if="stringToLatexExpression(expression) && config.constraintType !== ConstraintType.Following"
 			:expression="stringToLatexExpression(expression)"
 		/>
 	</section>

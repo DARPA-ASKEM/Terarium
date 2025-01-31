@@ -73,8 +73,6 @@ public class KnowledgeControllerTests extends TerariumApplicationTests {
 	@BeforeEach
 	public void setup() throws IOException {
 		projectSearchService.setupIndexAndAliasAndEnsureEmpty();
-		datasetService.setupIndexAndAliasAndEnsureEmpty();
-		modelService.setupIndexAndAliasAndEnsureEmpty();
 		project = projectService.createProject(
 			(Project) new Project().setPublicAsset(true).setName("test-project-name").setDescription("my description")
 		);
@@ -83,8 +81,6 @@ public class KnowledgeControllerTests extends TerariumApplicationTests {
 	@AfterEach
 	public void teardown() throws IOException {
 		projectSearchService.teardownIndexAndAlias();
-		datasetService.teardownIndexAndAlias();
-		modelService.teardownIndexAndAlias();
 	}
 
 	// @Test

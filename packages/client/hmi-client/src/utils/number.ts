@@ -14,8 +14,8 @@ export function exponentialToNumber(num: string): string {
  * @param {string} num - The number string to convert.
  * @returns {string} The number in NIST form.
  */
-export function numberToNist(num: string) {
-	num = num.replace(/\s/g, '');
+export function numberToNist(num: string | number) {
+	num = num.toString().replace(/\s/g, '');
 
 	if (Number.isNaN(Number(num))) return '';
 
@@ -73,7 +73,8 @@ export function nistToNumber(numStr: string): number {
  * @param {string} num - The number string to display.
  * @returns {string} The number in either exponential form or NIST form.
  */
-export function displayNumber(num: string): string {
+export function displayNumber(num: string | number): string {
+	num = num.toString().replace(/\s/g, '');
 	const number = fixPrecisionError(parseFloat(num));
 	if (countDigits(number) > 6) return number.toExponential(3);
 	return numberToNist(number.toString());
@@ -147,4 +148,8 @@ export function toScientificNotation(num: number) {
 	const mantissa = num / 10 ** exponent;
 
 	return { mantissa, exponent };
+}
+
+export function roundNumber(number: number): number {
+	return Math.round(number * 1000) / 1000;
 }

@@ -46,12 +46,15 @@ The following port combos should not connect if...
 6. If it didn't work, notify the Beaker developers about the code that was generated. There is also a chance that the prompt that the AI came up with lacked accuracy and couldn't possibly be applied to the model.
 7. Click on the 'Run' button again and verify that the `vaccine` transition added at Step (4) has not been duplicated (i.e. the `v` terms in the model equations become `2 v` and the number of transition is still `3`).
 
-### 4. Save as new model
+### 4. Enrich the model
+1. Click the 'Enrich metadata' button. You should get some feedback that the enrichment is running. When it is done, check that the variables and parameters have their description filled and expanded and that the Description section at the top contains information.
+
+### 5. Save as new model
 1. Click the 'Save as reuse' button.
 2. Give the new model a name and save it.
 3. Close the operator and then check if your new model is in your project.
 
-### 5. Reset
+### 6. Reset
 1. Open the Edit model operator from step 3.
 2. Select the first output.
 3. Generate some code with the LLM dropdown again but don't run it.

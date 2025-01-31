@@ -362,7 +362,9 @@ public class ProjectSearchService {
 		final TerariumAsset asset,
 		final boolean force
 	) throws IOException {
-		if (force || (!isRunningTestProfile() && !asset.getTemporary())) {
+		//TODO: Temporary fix for performance issue. Disabling embeddings for now. Jan 29 2025
+
+		/*if (force || (!isRunningTestProfile() && !asset.getTemporary())) {
 			final Map<TerariumAssetEmbeddingType, String> embeddingTexts = asset.getEmbeddingsSourceByType();
 			if (embeddingTexts == null) {
 				log.warn("unable to get embedding sources for asset {}", asset.getId());
@@ -441,7 +443,7 @@ public class ProjectSearchService {
 					}
 				}).start();
 			});
-		}
+		}*/
 		return null;
 	}
 

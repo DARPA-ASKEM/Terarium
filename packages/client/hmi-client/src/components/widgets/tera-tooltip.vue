@@ -3,7 +3,7 @@
 		<slot />
 		<div
 			v-if="props.showTooltip"
-			class="tooltip-content"
+			class="tooltip-content pointer-events-none"
 			:class="[{ 'has-arrow': hasArrow }, arrowClass]"
 			:style="tooltipStyle"
 		>

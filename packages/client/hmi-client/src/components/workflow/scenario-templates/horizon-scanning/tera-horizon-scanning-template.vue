@@ -11,7 +11,9 @@
 				@update:model-value="scenario.setModelSpec($event)"
 				class="mb-3"
 			/>
-			<label>Select configuration representing best and generous estimates of the initial conditions</label>
+			<label :class="{ 'disabled-label': isEmpty(filterModelConfigurations) || isFetchingModelInformation }"
+				>Select configuration representing best and generous estimates of the initial conditions</label
+			>
 			<Dropdown
 				:model-value="scenario.modelConfigSpec.id"
 				placeholder="Select a configuration"
@@ -19,44 +21,20 @@
 				option-label="name"
 				option-value="id"
 				@update:model-value="scenario.setModelConfigSpec($event)"
-				:disabled="isEmpty(modelConfigurations) || isFetchingModelInformation"
+				:disabled="isEmpty(filterModelConfigurations) || isFetchingModelInformation"
 				:loading="isFetchingModelInformation"
 				class="mb-3"
-			/>
-			<label>Select intervention policy (historical)</label>
-			<div v-for="(intervention, i) in scenario.interventionSpecs" :key="i" class="flex">
-				<Dropdown
-					class="flex-1 my-1"
-					:model-value="intervention.id"
-					:options="interventionPolicies"
-					option-label="name"
-					option-value="id"
-					placeholder="Select an intervention policy (optional)"
-					@update:model-value="scenario.setInterventionSpec($event, i)"
-					:key="i"
-					:disabled="isEmpty(interventionPolicies)"
-					:loading="isFetchingModelInformation"
-				/>
-				<Button
-					v-if="scenario.interventionSpecs.length > 1"
-					size="small"
-					text
-					icon="pi pi-trash"
-					@click="scenario.deleteInterventionSpec(i)"
-				/>
-			</div>
-			<div>
-				<Button
-					class="py-2 mb-3"
-					size="small"
-					text
-					icon="pi pi-plus"
-					label="Add more interventions"
-					@click="scenario.addInterventionSpec()"
-				/>
-			</div>
+			>
+				<template #option="slotProps">
+					<p>
+						{{ slotProps.option.name }} <span class="subtext">({{ formatTimestamp(slotProps.option.createdOn) }})</span>
+					</p>
+				</template>
+			</Dropdown>
 
-			<label>Select uncertain parameters of interest and adjust ranges to be explored if needed</label>
+			<label :class="{ 'disabled-label': !scenario.modelSpec.id }"
+				>Select uncertain parameters of interest and adjust ranges to be explored if needed</label
+			>
 			<template v-for="(parameter, i) in scenario.parameters" :key="i">
 				<div class="flex">
 					<Dropdown
@@ -66,7 +44,7 @@
 						option-label="referenceId"
 						option-value="referenceId"
 						placeholder="Select a parameter"
-						:disabled="!selectedModelConfiguration"
+						:disabled="!scenario.modelSpec.id"
 						:loading="isFetchingModelConfiguration || isFetchingModelInformation"
 						@update:model-value="onParameterSelect($event, i)"
 						filter
@@ -102,9 +80,61 @@
 					@click="scenario.addParameter()"
 				/>
 			</div>
+
+			<label :class="{ 'disabled-label': !scenario.modelSpec.id }">Planned intervention policy (optional)</label>
+			<div v-for="(intervention, i) in scenario.interventionSpecs" :key="i" class="flex">
+				<Dropdown
+					ref="interventionDropdowns"
+					class="flex-1 my-1"
+					:model-value="intervention.id"
+					:options="combinedInterventionPolicies"
+					option-label="name"
+					option-value="id"
+					placeholder="Select an intervention policy (optional)"
+					@update:model-value="scenario.setInterventionSpec($event, i)"
+					:key="i"
+					:disabled="!scenario.modelSpec.id || isFetchingModelInformation"
+					:loading="isFetchingModelInformation"
+					filter
+				>
+					<template #filtericon>
+						<Button label="Create new policy" icon="pi pi-plus" size="small" text @click="onOpenPolicyModel(i)" />
+					</template>
+
+					<template #option="slotProps">
+						<p>
+							{{ slotProps.option.name }}
+							<span class="subtext">
+								({{ slotProps.option.createdOn ? formatTimestamp(slotProps.option.createdOn) : 'Created by you' }})
+							</span>
+						</p>
+					</template>
+				</Dropdown>
+				<Button
+					v-if="scenario.interventionSpecs.length > 1"
+					size="small"
+					text
+					icon="pi pi-trash"
+					@click="scenario.deleteInterventionSpec(i)"
+					:disabled="!scenario.modelSpec.id || isFetchingModelInformation"
+				/>
+			</div>
+			<div>
+				<Button
+					class="py-2 mb-3"
+					size="small"
+					text
+					icon="pi pi-plus"
+					label="Add more interventions"
+					@click="scenario.addInterventionSpec()"
+					:disabled="!scenario.modelSpec.id || isFetchingModelInformation"
+				/>
+			</div>
 		</template>
 		<template #outputs>
-			<label>Select an output metric</label>
+			<label :class="{ 'disabled-label': isEmpty(modelStateOptions) || isFetchingModelInformation }"
+				>Select an output metric</label
+			>
 			<MultiSelect
 				:disabled="isEmpty(modelStateOptions) || isFetchingModelInformation"
 				:model-value="scenario.simulateSpec.ids"
@@ -117,8 +147,14 @@
 				filter
 			/>
 			<img :src="horizon" alt="Horizon scanning chart" class="" />
+			<tera-simulation-settings :scenario-instance="scenario" />
 		</template>
 	</tera-scenario-template>
+	<tera-new-policy-modal
+		:is-visible="isPolicyModalVisible"
+		@close="isPolicyModalVisible = false"
+		@create="addNewPolicy"
+	/>
 </template>
 
 <script setup lang="ts">
@@ -134,9 +170,12 @@ import { getInterventionPoliciesForModel, getModel, getModelConfigurationsForMod
 import { AssetType, InterventionPolicy, ModelConfiguration, ParameterSemantic } from '@/types/Types';
 import { getModelConfigurationById, getParameter, getParameters } from '@/services/model-configurations';
 import TeraInputNumber from '@/components/widgets/tera-input-number.vue';
+import { sortDatesDesc, formatTimestamp } from '@/utils/date';
 import { ScenarioHeader } from '../base-scenario';
 import TeraScenarioTemplate from '../tera-scenario-template.vue';
-import { displayParameter } from '../scenario-template-utils';
+import { displayParameter, usePolicyModel } from '../scenario-template-utils';
+import teraNewPolicyModal from '../tera-new-policy-modal.vue';
+import TeraSimulationSettings from '../tera-simulation-settings.vue';
 
 const header: ScenarioHeader = Object.freeze({
 	title: 'Horizon scanning template',
@@ -152,7 +191,9 @@ const models = computed(() => useProjects().getActiveProjectAssets(AssetType.Mod
 
 const modelConfigurations = ref<ModelConfiguration[]>([]);
 const filterModelConfigurations = computed<ModelConfiguration[]>(() =>
-	modelConfigurations.value.filter((mc) => isEmpty(mc.inferredParameterList))
+	modelConfigurations.value
+		.filter((mc) => isEmpty(mc.inferredParameterList))
+		.sort((a, b) => sortDatesDesc(a.createdOn, b.createdOn))
 );
 const interventionPolicies = ref<InterventionPolicy[]>([]);
 const modelStateOptions = ref<any[]>([]);
@@ -160,11 +201,30 @@ const modelParameters = ref<ParameterSemantic[]>([]);
 
 const selectedModelConfiguration = ref<ModelConfiguration | null>(null);
 
+const interventionDropdowns = ref();
+const isPolicyModalVisible = ref(false);
+const policyModalContext = ref<number | null>(null);
+
+const combinedInterventionPolicies = computed(() =>
+	[...props.scenario.newInterventionSpecs, ...interventionPolicies.value].sort((a: any, b: any) => {
+		if (!a.createdOn) return -1;
+		if (!b.createdOn) return 1;
+		return sortDatesDesc(a.createdOn, b.createdOn);
+	})
+);
+
 const props = defineProps<{
 	scenario: HorizonScanningScenario;
 }>();
 
 const emit = defineEmits(['save-workflow']);
+
+const { onOpenPolicyModel, addNewPolicy } = usePolicyModel(
+	props,
+	interventionDropdowns,
+	policyModalContext,
+	isPolicyModalVisible
+);
 
 const onParameterSelect = (parameterId: string, index: number) => {
 	if (!selectedModelConfiguration.value) return;
@@ -225,5 +285,9 @@ watch(
 	padding: var(--gap-2) var(--gap-1);
 	margin: var(--gap-0-5) 0;
 	background-color: var(--surface-100);
+}
+
+.disabled-label {
+	color: var(--text-color-disabled);
 }
 </style>

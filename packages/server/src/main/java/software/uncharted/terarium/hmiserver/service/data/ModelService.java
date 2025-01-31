@@ -1,8 +1,5 @@
 package software.uncharted.terarium.hmiserver.service.data;
 
-import co.elastic.clients.elasticsearch.core.SearchRequest;
-import co.elastic.clients.elasticsearch.core.search.SourceConfig;
-import co.elastic.clients.elasticsearch.core.search.SourceFilter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -14,10 +11,8 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import software.uncharted.terarium.hmiserver.configuration.Config;
-import software.uncharted.terarium.hmiserver.configuration.ElasticsearchConfiguration;
 import software.uncharted.terarium.hmiserver.models.dataservice.document.DocumentAsset;
 import software.uncharted.terarium.hmiserver.models.dataservice.model.Model;
 import software.uncharted.terarium.hmiserver.models.dataservice.model.ModelDescription;
@@ -33,8 +28,6 @@ import software.uncharted.terarium.hmiserver.models.task.TaskRequest;
 import software.uncharted.terarium.hmiserver.models.task.TaskResponse;
 import software.uncharted.terarium.hmiserver.repository.data.ModelRepository;
 import software.uncharted.terarium.hmiserver.service.CurrentUserService;
-import software.uncharted.terarium.hmiserver.service.elasticsearch.ElasticsearchService;
-import software.uncharted.terarium.hmiserver.service.gollm.EmbeddingService;
 import software.uncharted.terarium.hmiserver.service.s3.S3ClientService;
 import software.uncharted.terarium.hmiserver.service.tasks.TaskService;
 import software.uncharted.terarium.hmiserver.service.tasks.TaskUtilities;
@@ -42,7 +35,7 @@ import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
 
 @Slf4j
 @Service
-public class ModelService extends TerariumAssetServiceWithSearch<Model, ModelRepository> {
+public class ModelService extends TerariumAssetService<Model, ModelRepository> {
 
 	private final CurrentUserService currentUserService;
 	private final DocumentAssetService documentAssetService;
@@ -50,62 +43,22 @@ public class ModelService extends TerariumAssetServiceWithSearch<Model, ModelRep
 	private final DKGService dkgService;
 
 	public ModelService(
+		final ObjectMapper objectMapper,
 		final Config config,
 		final CurrentUserService currentUserService,
 		final DocumentAssetService documentAssetService,
-		final ElasticsearchConfiguration elasticConfig,
-		final ElasticsearchService elasticService,
-		final EmbeddingService embeddingService,
-		final Environment env,
-		final DKGService dkgService,
-		final ModelRepository repository,
-		final ObjectMapper objectMapper,
-		final ProjectAssetService projectAssetService,
 		final ProjectService projectService,
+		final ProjectAssetService projectAssetService,
+		final ModelRepository repository,
 		final S3ClientService s3ClientService,
-		final TaskService taskService
+		final TaskService taskService,
+		final DKGService dkgService
 	) {
-		super(
-			objectMapper,
-			config,
-			elasticConfig,
-			elasticService,
-			embeddingService,
-			env,
-			projectService,
-			projectAssetService,
-			s3ClientService,
-			repository,
-			Model.class
-		);
+		super(objectMapper, config, projectService, projectAssetService, repository, s3ClientService, Model.class);
 		this.currentUserService = currentUserService;
 		this.documentAssetService = documentAssetService;
 		this.taskService = taskService;
 		this.dkgService = dkgService;
-	}
-
-	@Observed(name = "function_profile")
-	public List<ModelDescription> getDescriptions(final Integer page, final Integer pageSize) throws IOException {
-		final SourceConfig source = new SourceConfig.Builder()
-			.filter(new SourceFilter.Builder().excludes("model", "semantics").build())
-			.build();
-
-		final SearchRequest req = new SearchRequest.Builder()
-			.index(getAssetAlias())
-			.from(page)
-			.size(pageSize)
-			.query(q ->
-				q.bool(b ->
-					b
-						.mustNot(mn -> mn.exists(e -> e.field("deletedOn")))
-						.mustNot(mn -> mn.term(t -> t.field("temporary").value(true)))
-						.mustNot(mn -> mn.term(t -> t.field("isPublic").value(false)))
-				)
-			)
-			.source(source)
-			.build();
-
-		return elasticService.search(req, Model.class).stream().map(m -> ModelDescription.fromModel(m)).toList();
 	}
 
 	@Observed(name = "function_profile")
@@ -122,19 +75,8 @@ public class ModelService extends TerariumAssetServiceWithSearch<Model, ModelRep
 
 	@Override
 	@Observed(name = "function_profile")
-	protected String getAssetIndex() {
-		return elasticConfig.getModelIndex();
-	}
-
-	@Override
-	@Observed(name = "function_profile")
 	protected String getAssetPath() {
 		throw new UnsupportedOperationException("Models are not stored in S3");
-	}
-
-	@Override
-	public String getAssetAlias() {
-		return elasticConfig.getModelAlias();
 	}
 
 	@Observed(name = "function_profile")
@@ -174,7 +116,7 @@ public class ModelService extends TerariumAssetServiceWithSearch<Model, ModelRep
 			asset.setName(asset.getHeader().getName());
 		}
 
-		JsonNode time = asset.getSemantics().getOde().getTime();
+		final JsonNode time = asset.getSemantics().getOde().getTime();
 		// set a time parameter and default to day for the model if it doesn't exist
 		if (time == null || time.get("id") == null) {
 			asset.getSemantics().getOde().setTime(objectMapper.createObjectNode().put("id", "t"));
@@ -183,18 +125,14 @@ public class ModelService extends TerariumAssetServiceWithSearch<Model, ModelRep
 		// if there is a time parameter, set the default to date if it is "day"
 		if (time != null && time.get("units") != null && time.get("units").get("expression").asText().equals("day")) {
 			final String id = asset.getSemantics().getOde().getTime().get("id").asText();
-			ObjectNode unitsNode = objectMapper
+			final ObjectNode unitsNode = objectMapper
 				.createObjectNode()
 				.put("expression", "date")
 				.put("expression_mathml", "<ci>date</ci>");
-			ObjectNode timeNode = objectMapper.createObjectNode().put("id", id).set("units", unitsNode);
+			final ObjectNode timeNode = objectMapper.createObjectNode().put("id", id).set("units", unitsNode);
 			asset.getSemantics().getOde().setTime(timeNode);
 		}
-		final Model created = super.createAsset(asset, projectId, hasWritePermission);
-
-		generateAndUpsertEmbeddings(created);
-
-		return created;
+		return super.createAsset(asset, projectId, hasWritePermission);
 	}
 
 	@Override
@@ -219,10 +157,6 @@ public class ModelService extends TerariumAssetServiceWithSearch<Model, ModelRep
 		if (updatedOptional.isEmpty()) {
 			return Optional.empty();
 		}
-
-		final Model updated = updatedOptional.get();
-
-		generateAndUpsertEmbeddings(updated);
 
 		return updatedOptional;
 	}
@@ -293,32 +227,32 @@ public class ModelService extends TerariumAssetServiceWithSearch<Model, ModelRep
 		// Update State Grounding
 		if (newModel.get().isRegnet()) {
 			final List<RegNetVertex> vertices = newModel.get().getVerticies();
-			TaskUtilities.performDKGSearchAndSetGrounding(dkgService, vertices);
+			TaskUtilities.getCuratedGrounding(vertices);
 			newModel.get().setVerticies(vertices);
 		} else {
 			final List<State> states = newModel.get().getStates();
-			TaskUtilities.performDKGSearchAndSetGrounding(dkgService, states);
+			TaskUtilities.getCuratedGrounding(states);
 			newModel.get().setStates(states);
 		}
 
 		// Update Observable Grounding
 		if (newModel.get().getObservables() != null && !newModel.get().getObservables().isEmpty()) {
 			final List<Observable> observables = newModel.get().getObservables();
-			TaskUtilities.performDKGSearchAndSetGrounding(dkgService, observables);
+			TaskUtilities.getCuratedGrounding(observables);
 			newModel.get().setObservables(observables);
 		}
 
 		// Update Parameter Grounding
 		if (newModel.get().getParameters() != null && !newModel.get().getParameters().isEmpty()) {
 			final List<ModelParameter> parameters = newModel.get().getParameters();
-			TaskUtilities.performDKGSearchAndSetGrounding(dkgService, parameters);
+			TaskUtilities.getCuratedGrounding(parameters);
 			newModel.get().setParameters(parameters);
 		}
 
 		// Update Transition Grounding
 		if (newModel.get().getTransitions() != null && !newModel.get().getTransitions().isEmpty()) {
 			final List<Transition> transitions = newModel.get().getTransitions();
-			TaskUtilities.performDKGSearchAndSetGrounding(dkgService, transitions);
+			TaskUtilities.getCuratedGrounding(transitions);
 			newModel.get().setTransitions(transitions);
 		}
 

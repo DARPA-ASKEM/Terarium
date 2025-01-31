@@ -32,12 +32,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,11 +45,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import software.uncharted.terarium.hmiserver.models.ClientEventType;
-import software.uncharted.terarium.hmiserver.models.dataservice.Grounding;
 import software.uncharted.terarium.hmiserver.models.dataservice.code.Code;
 import software.uncharted.terarium.hmiserver.models.dataservice.code.CodeFile;
-import software.uncharted.terarium.hmiserver.models.dataservice.dataset.Dataset;
-import software.uncharted.terarium.hmiserver.models.dataservice.dataset.DatasetColumn;
 import software.uncharted.terarium.hmiserver.models.dataservice.document.DocumentAsset;
 import software.uncharted.terarium.hmiserver.models.dataservice.model.Model;
 import software.uncharted.terarium.hmiserver.models.dataservice.modelparts.ModelHeader;
@@ -60,27 +55,21 @@ import software.uncharted.terarium.hmiserver.models.dataservice.provenance.Prove
 import software.uncharted.terarium.hmiserver.models.dataservice.provenance.ProvenanceRelationType;
 import software.uncharted.terarium.hmiserver.models.dataservice.provenance.ProvenanceType;
 import software.uncharted.terarium.hmiserver.models.extractionservice.ExtractionResponse;
-import software.uncharted.terarium.hmiserver.models.mira.DKG;
 import software.uncharted.terarium.hmiserver.models.task.TaskRequest;
 import software.uncharted.terarium.hmiserver.models.task.TaskRequest.TaskType;
 import software.uncharted.terarium.hmiserver.models.task.TaskResponse;
-import software.uncharted.terarium.hmiserver.proxies.mit.MitProxy;
 import software.uncharted.terarium.hmiserver.proxies.skema.SkemaUnifiedProxy;
 import software.uncharted.terarium.hmiserver.security.Roles;
 import software.uncharted.terarium.hmiserver.service.ClientEventService;
 import software.uncharted.terarium.hmiserver.service.CurrentUserService;
 import software.uncharted.terarium.hmiserver.service.ExtractionService;
 import software.uncharted.terarium.hmiserver.service.data.CodeService;
-import software.uncharted.terarium.hmiserver.service.data.DatasetService;
-import software.uncharted.terarium.hmiserver.service.data.DocumentAssetService;
 import software.uncharted.terarium.hmiserver.service.data.ModelService;
 import software.uncharted.terarium.hmiserver.service.data.ProjectService;
 import software.uncharted.terarium.hmiserver.service.data.ProvenanceService;
 import software.uncharted.terarium.hmiserver.service.notification.NotificationGroupInstance;
 import software.uncharted.terarium.hmiserver.service.notification.NotificationService;
 import software.uncharted.terarium.hmiserver.service.tasks.EquationsCleanupResponseHandler;
-import software.uncharted.terarium.hmiserver.service.tasks.LatexToAMRResponseHandler;
-// latex to model chain
 import software.uncharted.terarium.hmiserver.service.tasks.LatexToSympyResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.SympyToAMRResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.TaskService;
@@ -88,7 +77,6 @@ import software.uncharted.terarium.hmiserver.service.tasks.TaskService.TaskMode;
 import software.uncharted.terarium.hmiserver.utils.ByteMultipartFile;
 import software.uncharted.terarium.hmiserver.utils.JsonUtil;
 import software.uncharted.terarium.hmiserver.utils.Messages;
-import software.uncharted.terarium.hmiserver.utils.StringMultipartFile;
 import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
 
 @RequestMapping("/knowledge")
@@ -100,10 +88,7 @@ public class KnowledgeController {
 	private final ObjectMapper mapper;
 
 	private final SkemaUnifiedProxy skemaUnifiedProxy;
-	private final MitProxy mitProxy;
 
-	private final DocumentAssetService documentService;
-	private final DatasetService datasetService;
 	private final ModelService modelService;
 	private final ProvenanceService provenanceService;
 
@@ -120,9 +105,6 @@ public class KnowledgeController {
 	private final EquationsCleanupResponseHandler equationsCleanupResponseHandler;
 
 	private final Messages messages;
-
-	@Value("${openai-api-key:}")
-	String OPENAI_API_KEY;
 
 	@PostConstruct
 	void init() {
@@ -141,7 +123,7 @@ public class KnowledgeController {
 		@RequestParam(name = "project-id", required = false) final UUID projectId
 	) {
 		TaskRequest cleanupReq = cleanupEquationsTaskRequest(projectId, equations);
-		TaskResponse cleanupResp = null;
+		TaskResponse cleanupResp;
 		List<String> cleanedEquations = new ArrayList<>(equations); // Have original equations as a fallback
 		boolean wasCleaned = false;
 
@@ -270,38 +252,29 @@ public class KnowledgeController {
 		}
 
 		if (extractionService.equals("mira")) {
-			final TaskRequest latexToSympyRequest = new TaskRequest();
+			final TaskRequest latexToSympyRequest;
 			final TaskResponse latexToSympyResponse;
-			final TaskRequest sympyToAMRRequest = new TaskRequest();
+			final TaskRequest sympyToAMRRequest;
 			final TaskResponse sympyToAMRResponse;
 
 			try {
 				// 1. LaTeX to sympy code
-				final String latex = req.get("equations").toString();
-				latexToSympyRequest.setType(TaskType.GOLLM);
-				latexToSympyRequest.setInput(latex.getBytes());
-				latexToSympyRequest.setScript(LatexToSympyResponseHandler.NAME);
-				latexToSympyRequest.setUserId(currentUserService.get().getId());
-				latexToSympyRequest.setUseCache(false); // Don't cache because LLM can give incorrect result
+				latexToSympyRequest = createLatexToSympyTask(equationsReq);
 				latexToSympyResponse = taskService.runTaskSync(latexToSympyRequest);
 
 				// 2. hand off
-				final JsonNode node = mapper.readValue(latexToSympyResponse.getOutput(), JsonNode.class);
-				final String code = node.get("response").asText();
+				final String code = extractCodeFromLatexToSympy(latexToSympyResponse);
 
 				// 3. sympy code string to amr json
-				sympyToAMRRequest.setType(TaskType.MIRA);
-				sympyToAMRRequest.setInput(code.getBytes());
-				sympyToAMRRequest.setScript(SympyToAMRResponseHandler.NAME);
-				sympyToAMRRequest.setUserId(currentUserService.get().getId());
+				sympyToAMRRequest = createSympyToAMRTask(code);
 				sympyToAMRResponse = taskService.runTaskSync(sympyToAMRRequest);
 
 				final JsonNode taskResponseJSON = mapper.readValue(sympyToAMRResponse.getOutput(), JsonNode.class);
 				final ObjectNode amrNode = taskResponseJSON.get("response").get("amr").deepCopy();
 				responseAMR = mapper.convertValue(amrNode, Model.class);
 			} catch (final Exception e) {
-				log.error("failed to convert LaTeX equations to AMR", e);
-				throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "failed to convert latex equations to AMR");
+				log.error(messages.get("task.mira.internal-error"), e);
+				throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, messages.get("task.mira.internal-error"));
 			}
 		} else {
 			try {
@@ -654,142 +627,6 @@ public class KnowledgeController {
 		return postCodeToAMR(createdCode.getId(), projectId, "temp model", "temp model description", false, false);
 	}
 
-	/**
-	 * Enrich a dataset metadata
-	 *
-	 * @param datasetId  (DocumentAsset): The ID of the dataset to profile
-	 * @param documentId (String): The ID of the document to profile
-	 * @return the profiled dataset
-	 */
-	@PostMapping("/profile-dataset/{dataset-id}")
-	@Secured(Roles.USER)
-	public ResponseEntity<Dataset> postProfileDataset(
-		@PathVariable("dataset-id") final UUID datasetId,
-		@RequestParam(name = "project-id", required = false) final UUID projectId,
-		@RequestParam(name = "document-id", required = false) final Optional<UUID> documentId
-	) {
-		final Schema.Permission permission = projectService.checkPermissionCanWrite(
-			currentUserService.get().getId(),
-			projectId
-		);
-
-		// Provenance call if a document id is provided
-		final StringMultipartFile documentFile;
-		if (documentId.isPresent()) {
-			final DocumentAsset document = documentService.getAsset(documentId.get(), permission).orElseThrow();
-			documentFile = new StringMultipartFile(document.getText(), documentId.get() + ".txt", "application/text");
-
-			try {
-				final Provenance provenancePayload = new Provenance(
-					ProvenanceRelationType.EXTRACTED_FROM,
-					datasetId,
-					ProvenanceType.DATASET,
-					documentId.get(),
-					ProvenanceType.DOCUMENT
-				);
-				provenanceService.createProvenance(provenancePayload);
-			} catch (final Exception e) {
-				final String error = "Unable to create provenance for profile-dataset";
-				log.error(error, e);
-			}
-		} else {
-			documentFile = new StringMultipartFile(
-				"There is no documentation for this dataset",
-				"document.txt",
-				"application/text"
-			);
-		}
-
-		final Dataset dataset = datasetService.getAsset(datasetId, permission).orElseThrow();
-
-		if (dataset.getFileNames() == null || dataset.getFileNames().isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, messages.get("dataset.files.not-found"));
-		}
-		final String filename = dataset.getFileNames().get(0);
-
-		final String csvContents;
-		try {
-			csvContents = datasetService.fetchFileAsString(datasetId, filename).orElseThrow();
-		} catch (final IOException e) {
-			log.error("Unable to fetch file as string", e);
-			throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, messages.get("postgres.service-unavailable"));
-		}
-
-		final StringMultipartFile csvFile = new StringMultipartFile(csvContents, filename, "application/csv");
-
-		final ResponseEntity<JsonNode> resp = mitProxy.dataCard(OPENAI_API_KEY, csvFile, documentFile);
-
-		if (resp.getStatusCode().is4xxClientError()) {
-			log.warn("MIT Text-reading did not return a valid dataset card because a provided resource was not valid");
-			throw new ResponseStatusException(resp.getStatusCode(), messages.get("mit.file.unable-to-read"));
-		} else if (resp.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE) {
-			log.warn("MIT Text-reading is currently unavailable");
-			throw new ResponseStatusException(resp.getStatusCode(), messages.get("mit.service-unavailable"));
-		} else if (!resp.getStatusCode().is2xxSuccessful()) {
-			log.error(
-				"An error occurred while MIT Text-reading was trying to produce a dataset card based on the provided resource"
-			);
-			throw new ResponseStatusException(resp.getStatusCode(), messages.get("mit.internal-error"));
-		}
-
-		final JsonNode card = resp.getBody();
-		final JsonNode profilingResult = (card != null) ? card.get("DATA_PROFILING_RESULT") : mapper.createObjectNode();
-
-		for (final DatasetColumn col : dataset.getColumns()) {
-			final JsonNode annotation = profilingResult.get(col.getName());
-			if (annotation == null) {
-				log.warn("No annotations for column: {}", col.getName());
-				continue;
-			}
-
-			final JsonNode dkgGroundings = annotation.get("dkg_groundings");
-			if (dkgGroundings == null) {
-				log.warn("No dkg_groundings for column: {}", col.getName());
-				continue;
-			}
-
-			final Grounding groundings = new Grounding();
-			for (final JsonNode g : annotation.get("dkg_groundings")) {
-				if (g.size() < 2) {
-					log.warn("Invalid dkg_grounding: {}", g);
-					continue;
-				}
-				if (groundings.getIdentifiers() == null) {
-					groundings.setIdentifiers(new ArrayList<>());
-				}
-				groundings.getIdentifiers().add(new DKG(g.get(0).asText(), g.get(1).asText(), "", null, null));
-			}
-
-			// remove groundings from an annotation object
-			((ObjectNode) annotation).remove("dkg_groundings");
-
-			col.setGrounding(groundings);
-			col.setDescription(annotation.get("description").asText());
-			col.updateMetadata(annotation);
-		}
-
-		// add card to metadata
-		if (dataset.getMetadata() == null) {
-			dataset.setMetadata(mapper.createObjectNode());
-		}
-		((ObjectNode) dataset.getMetadata()).set("dataCard", card);
-
-		final Optional<Dataset> updatedDataset;
-		try {
-			updatedDataset = datasetService.updateAsset(dataset, projectId, permission);
-		} catch (final IOException e) {
-			log.error("Unable to update dataset", e);
-			throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, messages.get("postgres.service-unavailable"));
-		}
-
-		if (updatedDataset.isEmpty()) {
-			log.error("An error occurred while updating the dataset asset, resulting in an empty dataset");
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, messages.get("dataset.unable-to-update"));
-		}
-
-		return ResponseEntity.ok(updatedDataset.get());
-	}
-
 	@PostMapping("/align-model")
 	@Secured(Roles.USER)
 	@ApiResponses(
@@ -821,34 +658,6 @@ public class KnowledgeController {
 				messages.get("skema.error.align-model")
 			);
 		}
-	}
-
-	/**
-	 * Variables Extractions from Document with SKEMA
-	 *
-	 * @param documentId (String): The ID of the document to profile
-	 * @param modelIds   (List<String>): The IDs of the models to use for extraction
-	 * @param domain     (String): The domain of the document
-	 * @return an accepted response, the request being handled asynchronously
-	 */
-	@PostMapping("/variable-extractions")
-	public ResponseEntity<Void> variableExtractions(
-		@RequestParam("document-id") final UUID documentId,
-		@RequestParam(name = "model-ids", required = false) final List<UUID> modelIds,
-		@RequestParam(name = "domain", defaultValue = "epi") final String domain,
-		@RequestParam(name = "project-id", required = false) final UUID projectId
-	) {
-		final Schema.Permission permission = projectService.checkPermissionCanWrite(
-			currentUserService.get().getId(),
-			projectId
-		);
-		extractionService.extractVariables(
-			projectId,
-			documentId,
-			modelIds == null ? new ArrayList<>() : modelIds,
-			permission
-		);
-		return ResponseEntity.accepted().build();
 	}
 
 	/**
@@ -905,29 +714,25 @@ public class KnowledgeController {
 		}
 	)
 	/**
-	 * This is similiar to /equations-to-model endpoint, but rather than
+	 * This is similar to /equations-to-model endpoint, but rather than
 	 * directly creating a model asset it returns artifact at different intersections
 	 * and handoff for debugging
 	 **/
-	public ResponseEntity<JsonNode> latexToAMR(@RequestBody final String latex) {
+	public ResponseEntity<JsonNode> latexToAMRDebug(@RequestBody final String latex) {
 		////////////////////////////////////////////////////////////////////////////////
 		// 1. Convert latex string to python sympy code string
 		//
 		// Note this is a gollm string => string task
 		////////////////////////////////////////////////////////////////////////////////
-		final TaskRequest latexToSympyRequest = new TaskRequest();
+		final TaskRequest latexToSympyRequest;
 		final TaskResponse latexToSympyResponse;
 		String code = null;
 
 		try {
-			latexToSympyRequest.setType(TaskType.GOLLM);
-			latexToSympyRequest.setInput(latex.getBytes());
-			latexToSympyRequest.setScript(LatexToSympyResponseHandler.NAME);
-			latexToSympyRequest.setUserId(currentUserService.get().getId());
+			JsonNode temp = mapper.readValue(latex, JsonNode.class);
+			latexToSympyRequest = createLatexToSympyTask(temp);
 			latexToSympyResponse = taskService.runTaskSync(latexToSympyRequest);
-
-			final JsonNode node = mapper.readValue(latexToSympyResponse.getOutput(), JsonNode.class);
-			code = node.get("response").asText();
+			code = extractCodeFromLatexToSympy(latexToSympyResponse);
 		} catch (final TimeoutException e) {
 			log.warn("Timeout while waiting for task response", e);
 			throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, messages.get("task.gollm.timeout"));
@@ -950,15 +755,12 @@ public class KnowledgeController {
 		//
 		// This returns the AMR json, and intermediate data representations for debugging
 		////////////////////////////////////////////////////////////////////////////////
-		final TaskRequest sympyToAMRRequest = new TaskRequest();
+		final TaskRequest sympyToAMRRequest;
 		final TaskResponse sympyToAMRResponse;
 		final JsonNode response;
 
 		try {
-			sympyToAMRRequest.setType(TaskType.MIRA);
-			sympyToAMRRequest.setInput(code.getBytes());
-			sympyToAMRRequest.setScript(SympyToAMRResponseHandler.NAME);
-			sympyToAMRRequest.setUserId(currentUserService.get().getId());
+			sympyToAMRRequest = createSympyToAMRTask(code);
 			sympyToAMRResponse = taskService.runTaskSync(sympyToAMRRequest);
 			response = mapper.readValue(sympyToAMRResponse.getOutput(), JsonNode.class);
 			return ResponseEntity.ok().body(response);
@@ -1023,6 +825,48 @@ public class KnowledgeController {
 		req.setAdditionalProperties(props);
 
 		return req;
+	}
+
+	// Helper to create sympy => AMR task
+	private TaskRequest createSympyToAMRTask(final String sympyCode) throws Exception {
+		final TaskRequest sympyToAMRRequest = new TaskRequest();
+		sympyToAMRRequest.setType(TaskType.MIRA);
+		sympyToAMRRequest.setInput(sympyCode.getBytes());
+		sympyToAMRRequest.setScript(SympyToAMRResponseHandler.NAME);
+		sympyToAMRRequest.setUserId(currentUserService.get().getId());
+		return sympyToAMRRequest;
+	}
+
+	// Helper to create latex => sympy task
+	private TaskRequest createLatexToSympyTask(JsonNode equationsNode) throws Exception {
+		final TaskRequest latexToSympyRequest = new TaskRequest();
+
+		final LatexToSympyResponseHandler.Input input = new LatexToSympyResponseHandler.Input();
+		final List<String> equationList = new ArrayList<>();
+		for (final JsonNode equation : equationsNode) {
+			equationList.add(equation.asText());
+		}
+		input.setEquations(equationList);
+		latexToSympyRequest.setType(TaskType.GOLLM);
+		latexToSympyRequest.setInput(mapper.writeValueAsBytes(input));
+		latexToSympyRequest.setScript(LatexToSympyResponseHandler.NAME);
+		latexToSympyRequest.setUserId(currentUserService.get().getId());
+		latexToSympyRequest.setUseCache(false); // Don't cache because LLM can give incorrect result
+		return latexToSympyRequest;
+	}
+
+	private String extractCodeFromLatexToSympy(final TaskResponse taskResponse) throws Exception {
+		final LatexToSympyResponseHandler.Response response = mapper.readValue(
+			taskResponse.getOutput(),
+			LatexToSympyResponseHandler.Response.class
+		);
+		StringBuilder codeBuilder = new StringBuilder();
+		if (response.getResponse().get("equations").isArray()) {
+			for (JsonNode codeNode : response.getResponse().get("equations")) {
+				codeBuilder.append(codeNode.asText()).append("\n");
+			}
+		}
+		return codeBuilder.toString().trim();
 	}
 
 	private static class EquationCleanupResponse {

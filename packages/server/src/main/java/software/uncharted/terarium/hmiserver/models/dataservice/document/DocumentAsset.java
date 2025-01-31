@@ -28,7 +28,6 @@ import software.uncharted.terarium.hmiserver.annotations.TSIgnore;
 import software.uncharted.terarium.hmiserver.annotations.TSModel;
 import software.uncharted.terarium.hmiserver.annotations.TSOptional;
 import software.uncharted.terarium.hmiserver.models.TerariumAsset;
-import software.uncharted.terarium.hmiserver.models.TerariumAssetEmbeddingType;
 import software.uncharted.terarium.hmiserver.models.dataservice.Grounding;
 
 @EqualsAndHashCode(callSuper = true)
@@ -94,9 +93,10 @@ public class DocumentAsset extends TerariumAsset {
 		if (
 			this.extractions.size() == 0 &&
 			this.fileNames.size() > 0 &&
-			(this.fileNames.get(0).endsWith(".txt") || this.fileNames.get(0).endsWith(".md"))
+			(this.fileNames.get(0).endsWith(".txt") || this.fileNames.get(0).endsWith(".md")) &&
+			this.text != null
 		) {
-			extractions = List.of(new ExtractedDocumentPage().setPageNumber(1).setText(text));
+			extractions = List.of(new ExtractedDocumentPage().setPageNumber(1).setText(this.text));
 		}
 		return this.extractions;
 	}

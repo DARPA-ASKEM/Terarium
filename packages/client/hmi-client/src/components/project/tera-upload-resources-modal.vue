@@ -13,6 +13,7 @@
 						<div><dataset-icon /><span>Datasets</span><span>(csv, netcdf)</span></div>
 					</div>
 					<tera-drag-and-drop-importer
+						ref="dragAndDropImporter"
 						:accept-types="[
 							AcceptedTypes.PDF,
 							AcceptedTypes.CSV,
@@ -59,7 +60,7 @@
 		</template>
 		<template #footer>
 			<Button label="Upload" class="p-button-primary" @click="upload" />
-			<Button label="Cancel" class="p-button-secondary" @click="() => emit('close')" />
+			<Button label="Cancel" class="p-button-secondary" outlined @click="() => emit('close')" />
 		</template>
 	</tera-modal>
 </template>
@@ -75,7 +76,7 @@ import { AssetType, ProvenanceType } from '@/types/Types';
 import { uploadDocumentAssetToProject } from '@/services/document-assets';
 import { createNewDatasetFromFile } from '@/services/dataset';
 import useAuthStore from '@/stores/auth';
-import { ref } from 'vue';
+import { ref, watch, onMounted, nextTick } from 'vue';
 import TeraDragAndDropImporter from '@/components/extracting/tera-drag-n-drop-importer.vue';
 import { useToastService } from '@/services/toast';
 import { extractPDF } from '@/services/knowledge';
@@ -84,8 +85,9 @@ import { uploadArtifactToProject } from '@/services/artifact';
 import { createModel, createModelAndModelConfig, processAndAddModelToProject, validateAMRFile } from '@/services/model';
 import { createProvenance, RelationshipType } from '@/services/provenance';
 
-defineProps<{
+const props = defineProps<{
 	visible: boolean;
+	files?: File[]; // For passing files dragged onto the resources panel into the uploader
 }>();
 const emit = defineEmits(['close']);
 
@@ -94,6 +96,35 @@ const results = ref<{ id: string; name: string; assetType: AssetType }[] | null>
 const urlToUpload = ref('');
 const isImportGithubFileModalVisible = ref(false);
 const importedFiles = ref<File[]>([]);
+
+// Handle any files that are dragged onto the resources panel
+const dragAndDropImporter = ref();
+const pendingFiles = ref<File[] | null>(null);
+
+// When files arrive, store them if we can't process them yet
+watch(
+	() => props.files,
+	async (newFiles) => {
+		if (newFiles?.length) {
+			pendingFiles.value = newFiles;
+			await nextTick();
+			tryAddFiles();
+		}
+	}
+);
+
+// Try to add files if we have both files and a mounted importer
+function tryAddFiles() {
+	if (pendingFiles.value?.length && dragAndDropImporter.value) {
+		dragAndDropImporter.value.addFiles(pendingFiles.value);
+		pendingFiles.value = null;
+	}
+}
+
+// Once mounted, try to process any pending files
+onMounted(() => {
+	tryAddFiles();
+});
 
 async function processFiles(files: File[], description: string) {
 	return files.map(async (file) => {

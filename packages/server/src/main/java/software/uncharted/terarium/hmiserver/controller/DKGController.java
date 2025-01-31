@@ -1,6 +1,5 @@
 package software.uncharted.terarium.hmiserver.controller;
 
-import co.elastic.clients.elasticsearch.core.search.SourceConfig;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -15,8 +14,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import software.uncharted.terarium.hmiserver.models.dataservice.Grounding;
 import software.uncharted.terarium.hmiserver.models.mira.DKG;
 import software.uncharted.terarium.hmiserver.security.Roles;
+import software.uncharted.terarium.hmiserver.service.ContextMatcher;
 import software.uncharted.terarium.hmiserver.service.data.DKGService;
 
 @RequestMapping("/dkg")
@@ -50,7 +51,8 @@ public class DKGController {
 		@RequestParam final String term
 	) {
 		try {
-			return ResponseEntity.ok(dkgService.searchEpiDKG(page, pageSize, term, null));
+			final List<DKG> result = dkgService.searchEpiDKG(page, pageSize, term, null);
+			return ResponseEntity.ok(result);
 		} catch (Exception e) {
 			log.error("Error searching assets", e);
 			return ResponseEntity.internalServerError().build();

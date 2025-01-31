@@ -12,6 +12,7 @@
 				v-model:is-open="isDocViewerOpen"
 				header="Document viewer"
 				content-width="100%"
+				:document-viewer="true"
 			>
 				<template #content>
 					<tera-drilldown-section :is-loading="isFetchingPDF">
@@ -25,7 +26,12 @@
 					<main class="p-3">
 						<header class="pb-2">
 							<nav class="flex justify-content-between pb-2">
-								<span class="flex align-items-center">Specify which equations to use for this model.</span>
+								<span v-if="document" class="flex align-items-center"
+									>Specify which equations to use for this model.</span
+								>
+								<span v-else class="flex align-items-center"
+									>Connect a document or enter equations manually below.</span
+								>
 								<section class="flex align-items-center min-w-min">
 									<RadioButton
 										class="ml-3"
@@ -45,32 +51,79 @@
 										@click="switchRunType(RunType.skema)"
 									/>
 									<label for="dynamic" class="ml-2 mr-3 text-sm">SKEMA</label>
-
-									<Button class="h-3rem mr-1" label="Reset" severity="secondary" outlined />
-									<Button class="h-3rem mr-1" label="Run" @click="onRun(runType)" />
+									<Button
+										class="h-3rem mr-1"
+										label="Run"
+										@click="onRun(runType)"
+										:disabled="includedEquations.length < 1"
+									/>
 								</section>
 							</nav>
-							<section class="header-group">
-								<Textarea
-									v-model="multipleEquations"
-									autoResize
-									rows="1"
-									placeholder="Add one or more LaTex equations, or paste in a screenshot"
-									class="w-full"
-									:disabled="multipleEquationsDisabled"
-								/>
-								<Button
-									label="Add"
-									icon="pi pi-plus"
-									size="small"
-									@click="getEquations"
-									text
-									class="ml-2"
-									:disabled="isEmpty(multipleEquations)"
-								/>
+							<section
+								class="input-container"
+								@dragenter.prevent="dragEnterCount++"
+								@dragleave.prevent="dragEnterCount--"
+								@dragover.prevent
+								@drop.prevent.stop="handleDrop"
+							>
+								<div v-if="pastedImage" class="flex gap-3">
+									<div v-if="includedEquations.length == 0" class="flex gap-2 align-items-start">
+										<img
+											:src="'data:image/png;base64,' + pastedImage"
+											alt="Pasted image"
+											height="120"
+											class="pasted-image"
+										/>
+										<Button
+											icon="pi pi-times"
+											rounded
+											text
+											@click="
+												pastedImage = null;
+												multipleEquations = '';
+											"
+										/>
+									</div>
+									<div
+										v-if="
+											isEmpty(multipleEquations) &&
+											pastedImage &&
+											includedEquations.length === 0 &&
+											notIncludedEquations.length === 0
+										"
+										class="flex align-items-center gap-2"
+									>
+										<span class="pi pi-spinner pi-spin secondary-text"></span>
+										<span class="secondary-text">Converting to LaTeX</span>
+									</div>
+								</div>
+								<div class="input-group">
+									<!-- Add visual feedback for drag state -->
+									<div v-if="dragEnterCount > 0" class="drag-overlay">Drop image here</div>
+									<Textarea
+										v-model="multipleEquations"
+										autoResize
+										rows="1"
+										placeholder="Add one or more LaTex equations, or paste in a screenshot"
+										class="w-full"
+										:disabled="multipleEquationsDisabled"
+									/>
+									<Button
+										label="Add"
+										icon="pi pi-plus"
+										size="small"
+										@click="getEquations"
+										text
+										class="ml-2"
+										:disabled="isEmpty(multipleEquations)"
+									/>
+								</div>
 							</section>
 						</header>
-						<h6 class="py-3">Use {{ includedEquations.length > 1 ? 'these equations' : 'this equation' }}</h6>
+						<h6 v-if="includedEquations.length > 0" class="py-3">
+							Use {{ includedEquations.length > 1 ? 'these equations' : 'this equation' }}
+						</h6>
+						<p v-if="isEmpty(includedEquations) && document" class="secondary-text mt-3">No equations selected</p>
 						<ul class="blocks-container">
 							<li v-for="(equation, i) in includedEquations" :key="i" @click.capture="selectItem(equation, $event)">
 								<tera-asset-block
@@ -102,6 +155,14 @@
 												{{ getEquationErrorLabel(equation) }}
 											</div>
 										</div>
+										<Button
+											v-if="selectedItem !== equation.name"
+											icon="pi pi-pencil"
+											text
+											severity="secondary"
+											size="small"
+											class="ml-auto"
+										/>
 									</section>
 									<Textarea
 										v-if="selectedItem === equation.name"
@@ -110,14 +171,13 @@
 										rows="1"
 										placeholder="Add an expression with LaTeX"
 										class="w-full"
-										@update:model-value="emit('update-state', clonedState)"
 									/>
 								</tera-asset-block>
 							</li>
-							<p v-if="isEmpty(includedEquations)" class="secondary-text">No equations selected</p>
+							<!-- <p v-if="isEmpty(includedEquations) && !pastedImage" class="secondary-text">No equations selected</p> -->
 						</ul>
 						<div class="spacer mb-5" />
-						<h6 class="pb-3">Other equations extracted from document</h6>
+						<h6 v-if="notIncludedEquations.length > 0" class="pb-3">Other equations extracted from document</h6>
 						<ul class="blocks-container">
 							<li v-for="(equation, i) in notIncludedEquations" :key="i" @click.capture="selectItem(equation, $event)">
 								<tera-asset-block
@@ -148,6 +208,14 @@
 												{{ getEquationErrorLabel(equation) }}
 											</div>
 										</div>
+										<Button
+											v-if="selectedItem !== equation.name"
+											icon="pi pi-pencil"
+											text
+											severity="secondary"
+											size="small"
+											class="ml-auto"
+										/>
 									</section>
 									<Textarea
 										v-if="selectedItem === equation.name"
@@ -156,7 +224,6 @@
 										rows="1"
 										placeholder="Add an expression with LaTeX"
 										class="w-full"
-										@update:model-value="emit('update-state', clonedState)"
 									/>
 								</tera-asset-block>
 							</li>
@@ -171,14 +238,10 @@
 				content-width="100%"
 			>
 				<template #content>
-					<tera-drilldown-preview :is-loading="isModelLoading">
-						<tera-model
-							v-if="selectedModel"
-							is-workflow
-							is-save-for-reuse
-							:assetId="selectedModel.id"
-							@on-save="onModelSaveEvent"
-						/>
+					<!--The isOutputOpen condition enables the model diagram within tera-model to render properly
+						since we need some sort of width available-->
+					<tera-drilldown-preview v-if="isOutputOpen" :is-loading="isModelLoading">
+						<tera-model v-if="selectedModel" is-workflow is-save-for-reuse :asset-id="selectedModel.id" />
 						<tera-operator-placeholder v-else :node="node" class="h-100">
 							<p v-if="isModelLoading">Model is being created...</p>
 							<p v-else>Select equations to create a model</p>
@@ -217,7 +280,7 @@ import { logger } from '@/utils/logger';
 import RadioButton from 'primevue/radiobutton';
 import { ModelFromEquationsState, EquationBlock } from './model-from-equations-operation';
 
-const emit = defineEmits(['close', 'update-state', 'append-output', 'update-output', 'select-output']);
+const emit = defineEmits(['close', 'update-state', 'append-output', 'select-output']);
 const props = defineProps<{
 	node: WorkflowNode<ModelFromEquationsState>;
 }>();
@@ -344,7 +407,7 @@ onMounted(async () => {
 		emit('update-state', state);
 	}
 });
-
+const pastedImage = ref<string | null>(null);
 function handlePasteEvent(e) {
 	// checks if the user pasted a file or collection of files
 	if (e.clipboardData?.files.length) {
@@ -352,12 +415,14 @@ function handlePasteEvent(e) {
 		Array.from(e.clipboardData.files).forEach((item) => {
 			const reader = new FileReader();
 			reader.onload = function ({ target }) {
-				if (target && document.value?.id) {
+				if (target) {
 					const base64 = arrayBufferToBase64(target.result);
+					pastedImage.value = base64;
 					// send base64 to gollm
-					equationsFromImage(document.value.id, base64).then((response) => {
+					equationsFromImage(base64).then((response) => {
 						const responseJson = JSON.parse(window.atob(response.output)).response;
 						multipleEquations.value = responseJson.equations.join('\n');
+						multipleEquationsDisabled.value = false;
 					});
 				}
 			};
@@ -366,6 +431,29 @@ function handlePasteEvent(e) {
 			}
 		});
 	}
+}
+
+// drag n drop image to get equations
+const dragEnterCount = ref(0);
+
+function handleDrop(e: DragEvent) {
+	dragEnterCount.value = 0; // Reset counter on drop
+	const file = e.dataTransfer?.files[0];
+	if (!file) return;
+	multipleEquationsDisabled.value = true;
+	const reader = new FileReader();
+	reader.onload = ({ target }) => {
+		if (target?.result) {
+			const base64 = arrayBufferToBase64(target.result);
+			pastedImage.value = base64;
+			equationsFromImage(base64).then((response) => {
+				const responseJson = JSON.parse(window.atob(response.output)).response;
+				multipleEquations.value = responseJson.equations.join('\n');
+				multipleEquationsDisabled.value = false;
+			});
+		}
+	};
+	reader.readAsArrayBuffer(file);
 }
 
 function arrayBufferToBase64(buffer) {
@@ -378,6 +466,9 @@ function arrayBufferToBase64(buffer) {
 }
 
 onBeforeUnmount(async () => {
+	// flush changes
+	emit('update-state', clonedState.value);
+
 	window.removeEventListener('paste', handlePasteEvent);
 });
 
@@ -497,14 +588,6 @@ function getEquationErrorLabel(equation) {
 	return equation.asset.extractionError ? "Couldn't extract equation" : '';
 }
 
-function onModelSaveEvent(model: Model) {
-	if (!model) return;
-	const outputPort = cloneDeep(props.node.outputs?.find((port) => port.value?.[0] === model.id));
-	if (!outputPort) return;
-	outputPort.label = model.header.name;
-	emit('update-output', outputPort);
-}
-
 watch(
 	() => props.node.state,
 	() => {
@@ -542,31 +625,26 @@ watch(
 }
 
 .asset-panel {
-	border-width: 1px 1px 0 1px;
-	border-color: var(--surface-border-light);
-	border-style: solid;
-	border-radius: unset;
+	border: 1px solid var(--surface-border-light);
+	border-left: 4px solid var(--surface-400);
+	border-radius: var(--border-radius);
 	overflow: auto;
-
+	background: var(--surface-0);
+	cursor: pointer;
 	&.selected {
-		border-left: var(--gap-1) solid var(--primary-color);
+		border-left: 4px solid var(--primary-color);
 	}
 }
 .asset-panel:deep(.p-panel-header) {
 	padding-bottom: var(--gap-1);
+	background: transparent;
 }
-
-.blocks-container li:first-of-type .asset-panel {
-	border-top-left-radius: var(--border-radius-medium);
-	border-top-right-radius: var(--border-radius-medium);
+.asset-panel:deep(.p-panel-content) {
+	background: transparent;
 }
-
-.blocks-container li:last-of-type .asset-panel {
-	border-bottom-width: 1px;
-	border-bottom-left-radius: var(--border-radius-medium);
-	border-bottom-right-radius: var(--border-radius-medium);
+.asset-panel:hover {
+	background: var(--surface-highlight);
 }
-
 /* TODO: to be implemented when displaying the extracted equations.
 .equation-image {
 	border-style: dashed;
@@ -575,17 +653,43 @@ watch(
 }
 */
 
-.header-group {
+.input-container {
+	position: relative;
 	display: flex;
-	flex-direction: row;
-	align-items: center;
+	flex-direction: column;
 	justify-content: space-between;
 	background: var(--surface-50);
 	border-radius: var(--border-radius-medium);
 	border: 1px solid var(--surface-border-light);
 	padding: var(--gap-3);
 }
-
+.input-group {
+	display: flex;
+	align-items: center;
+	flex-direction: row;
+}
+.pasted-image {
+	border: 1px solid var(--surface-border-light);
+	border-radius: var(--border-radius);
+	margin-bottom: var(--gap-3);
+	width: fit-content;
+	overflow: hidden;
+}
+.drag-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: var(--surface-highlight);
+	border: 2px dashed var(--primary-color);
+	border-radius: var(--border-radius-medium);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--primary-color);
+	z-index: 1;
+}
 .equation-view {
 	display: flex;
 	gap: var(--gap-2);
@@ -633,5 +737,10 @@ watch(
 
 :deep(.p-panel section) {
 	align-items: start;
+}
+
+/* fix patch for document viewer */
+:deep(.document-viewer-header) {
+	width: 3rem !important;
 }
 </style>

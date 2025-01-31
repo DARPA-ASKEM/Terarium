@@ -241,6 +241,11 @@
 	.p-tooltip {
 		max-width: 380px;
 	}
+
+	.subtext {
+		font-size: var(--font-caption);
+		color: var(--text-color-secondary);
+	}
 }
 
 
@@ -248,4 +253,9 @@
 .p-contextmenu .p-submenu-list {
 	width: max-content;
 	max-width: 25rem;
+}
+
+/* Correct font color for multiselect token labels */
+.p-multiselect-token-label {
+	color: var(--text-color);
 }

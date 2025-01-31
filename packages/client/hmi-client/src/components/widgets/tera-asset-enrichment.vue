@@ -11,10 +11,10 @@
 		<template #header>
 			<h4>Enrich metadata</h4>
 		</template>
-		<p>The AI assistant can enrich the metadata of this {{ assetType }}.</p>
+		<p class="mb-2">The AI assistant can enrich the metadata of this {{ assetType }}.</p>
 		<p>Select a document or generate the information without additional context.</p>
 		<ul>
-			<li>
+			<li class="mb-0">
 				<label for="no-document">
 					<RadioButton inputId="no-document" name="no-document" v-model="selectedResourceId" value="" />
 					Generate information without context

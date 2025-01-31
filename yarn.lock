@@ -2845,10 +2845,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@rushstack/eslint-patch@npm:1.10.4":
-  version: 1.10.4
-  resolution: "@rushstack/eslint-patch@npm:1.10.4"
-  checksum: 10/fa14a091cc800e1fac75c03112db03eaebbdc2de6e1532ed7702e106c3ce0cbf9b896794d885d455b225e9cc696a5e10c7bfb803d00774461d691e7a39915fc7
+"@rushstack/eslint-patch@npm:1.10.5":
+  version: 1.10.5
+  resolution: "@rushstack/eslint-patch@npm:1.10.5"
+  checksum: 10/769d130dfb088c21e7ce72b552ea58c0d6d790cfe9fcadc4cd66e1282a0213a2c6b570d679723e0d3792a6b6ebfcbdeb5e785261d196017840853b8a5c57dfea
   languageName: node
   linkType: hard
 
@@ -3336,10 +3336,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/lodash@npm:4.17.13":
-  version: 4.17.13
-  resolution: "@types/lodash@npm:4.17.13"
-  checksum: 10/ddb34e20810c71be2d9445bcc4b64ec25b83976738454de709854b79c7f655b03704b76235445699956d65012987720e0e429a35489de65495cdb5420202d905
+"@types/lodash@npm:4.17.14":
+  version: 4.17.14
+  resolution: "@types/lodash@npm:4.17.14"
+  checksum: 10/6ee40725f3e192f5ef1f493caca19210aa7acd7adc3136b8dba84d418a35be0abea0668105aed9f696ad62a54310a9c0d328971ad4b157f5bcda700424ed5aae
   languageName: node
   linkType: hard
 
@@ -3392,7 +3392,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/papaparse@npm:^5":
+"@types/papaparse@npm:5.3.15":
   version: 5.3.15
   resolution: "@types/papaparse@npm:5.3.15"
   dependencies:
@@ -8494,7 +8494,7 @@ __metadata:
   dependencies:
     "@types/d3": "npm:7.4.3"
     "@types/jest": "npm:29.5.14"
-    "@types/lodash": "npm:4.17.13"
+    "@types/lodash": "npm:4.17.14"
     "@typescript-eslint/eslint-plugin": "npm:5.62.0"
     "@typescript-eslint/parser": "npm:5.62.0"
     copy: "npm:0.3.2"
@@ -8682,12 +8682,12 @@ __metadata:
     "@lumino/widgets": "npm:2.1.0"
     "@playwright/experimental-ct-vue": "npm:1.31.2"
     "@playwright/test": "npm:1.31.2"
-    "@rushstack/eslint-patch": "npm:1.10.4"
+    "@rushstack/eslint-patch": "npm:1.10.5"
     "@types/d3": "npm:7.4.3"
-    "@types/lodash": "npm:4.17.13"
+    "@types/lodash": "npm:4.17.14"
     "@types/markdown-it": "npm:14.1.2"
     "@types/node": "npm:18.19.3"
-    "@types/papaparse": "npm:^5"
+    "@types/papaparse": "npm:5.3.15"
     "@uncharted.software/design-tokens": "npm:1.1.0"
     "@vitejs/plugin-vue": "npm:4.6.2"
     "@vitest/coverage-c8": "npm:0.24.5"
@@ -8707,7 +8707,7 @@ __metadata:
     feather-icons: "npm:4.29.2"
     graph-scaffolder: "npm:*"
     jsdom: "npm:24.1.3"
-    katex: "npm:0.16.19"
+    katex: "npm:0.16.21"
     lodash: "npm:4.17.21"
     markdown-it: "npm:14.1.0"
     mathlive: "npm:0.89.2"
@@ -8720,7 +8720,7 @@ __metadata:
     pixi.js: "npm:7.0.5"
     primeflex: "npm:3.3.1"
     primeicons: "npm:7.0.0"
-    primevue: "npm:3.53.0"
+    primevue: "npm:3.53.1"
     pyodide: "npm:0.25.1"
     sass: "npm:1.56.1"
     typescript: "npm:5.6.3"
@@ -8728,7 +8728,7 @@ __metadata:
     vega: "npm:5.30.0"
     vega-embed: "npm:6.25.0"
     vega-lite: "npm:5.19.0"
-    vite: "npm:5.4.11"
+    vite: "npm:5.4.12"
     vite-svg-loader: "npm:4.0.0"
     vitest: "npm:0.24.5"
     vue: "npm:3.5.12"
@@ -10419,14 +10419,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"katex@npm:0.16.19":
-  version: 0.16.19
-  resolution: "katex@npm:0.16.19"
+"katex@npm:0.16.21":
+  version: 0.16.21
+  resolution: "katex@npm:0.16.21"
   dependencies:
     commander: "npm:^8.3.0"
   bin:
     katex: cli.js
-  checksum: 10/c22a2befc3fe8fb11fdd8492ad5c93665cbbd7ed81e2e4c3505e0706a1b9dddbbcbc7baf7f6f831ad96c268091777449aecadd061897dba1a8ec930826c62822
+  checksum: 10/db1094c528972ffb881c64969e87cbca465d21f918f4dad8bfe583f68e1bd601438eda3d79e8d74bc7ccc14e7b76616a9053bb21945749a30a73bc68f20e721b
   languageName: node
   linkType: hard
 
@@ -12268,12 +12268,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"primevue@npm:3.53.0":
-  version: 3.53.0
-  resolution: "primevue@npm:3.53.0"
+"primevue@npm:3.53.1":
+  version: 3.53.1
+  resolution: "primevue@npm:3.53.1"
   peerDependencies:
     vue: ^3.0.0
-  checksum: 10/a99e556ac7f2302286fc28d3c9b76f84dc7c69b70516a3e15adf47a2a63ead4dd9a0c893df4c9ab29a1502334e68784c467af0799082f0f8ba97bff8723060d8
+  checksum: 10/a0e9a07a976f41f9859049ef44b96f3a03185f5af30a05bf8afec65fd73a5a72b5896c4e0803a2119652c37357b7b9166b5f1f4d0913e4f85f5d931f63573cf6
   languageName: node
   linkType: hard
 
@@ -15132,9 +15132,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite@npm:5.4.11":
-  version: 5.4.11
-  resolution: "vite@npm:5.4.11"
+"vite@npm:5.4.12":
+  version: 5.4.12
+  resolution: "vite@npm:5.4.12"
   dependencies:
     esbuild: "npm:^0.21.3"
     fsevents: "npm:~2.3.3"
@@ -15171,7 +15171,7 @@ __metadata:
       optional: true
   bin:
     vite: bin/vite.js
-  checksum: 10/719c4dea896e9547958643354003c8c9ea98e5367196d98f5f46cffb3ec963fead3ea5853f5af941c79bbfb73583dec19bbb0d28d2f644b95d7f59c55e22919d
+  checksum: 10/16a2b486164717b51f8a22db750bba1d1d5be939e28d199a27a3c3f54cea484b3f2e8618eeafaec8b5075c011aa9aafd3e86b54411ba90555617190e626fe4ef
   languageName: node
   linkType: hard
 

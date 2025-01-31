@@ -3,7 +3,7 @@
 		<template #header>
 			<div class="flex align-items-center justify-space-between">
 				<h4 class="w-full mr-4">{{ id }} matrix</h4>
-				<div v-if="!isReadOnly" class="flex align-items-center gap-2 white-space-nowrap">
+				<div class="flex align-items-center gap-2 white-space-nowrap">
 					<InputSwitch
 						inputId="matrixShouldEval"
 						v-model="matrixShouldEval"
@@ -48,9 +48,3 @@ const emit = defineEmits(['close-modal', 'update-cell-values']);
 
 const matrixShouldEval = ref(false);
 </script>
-
-<style scoped>
-main:deep(.content) {
-	min-width: 40rem;
-}
-</style>

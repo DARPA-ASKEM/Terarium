@@ -51,38 +51,28 @@ const chartProxy = chartActionsProxy(props.node, (state: SimulateEnsembleCiemssO
 });
 
 const poller = new Poller();
-
-const getStatus = async (simulationId: string) => {
-	poller
-		.setInterval(3000)
-		.setThreshold(300)
-		.setPollAction(async () => pollAction(simulationId));
+const pollResult = async (runId: string) => {
+	poller.setPollAction(async () => pollAction(runId));
 	const pollerResults = await poller.start();
-	let state = _.cloneDeep(props.node.state);
-	state.errorMessage = { name: '', value: '', traceback: '' };
 
 	if (pollerResults.state === PollerState.Cancelled) {
-		state.inProgressForecastId = '';
 		poller.stop();
 	} else if (pollerResults.state !== PollerState.Done || !pollerResults.data) {
-		logger.error(`Simulation: ${simulationId} has failed`, {
-			toastTitle: 'Error - Pyciemss'
-		});
-		const simulation = await getSimulation(simulationId);
+		const simulation = await getSimulation(runId);
 		if (simulation?.status && simulation?.statusMessage) {
-			state = _.cloneDeep(props.node.state);
-			state.inProgressForecastId = '';
+			const state = _.cloneDeep(props.node.state);
 			state.errorMessage = {
-				name: simulationId,
+				name: runId,
 				value: simulation.status,
 				traceback: simulation.statusMessage
 			};
 			emit('update-state', state);
 		}
-		throw Error('Failed Runs');
+		// throw if there are any failed runs for now
+		logger.error(`Simulate: ${runId} has failed`, {
+			toastTitle: 'Error - Pyciemss'
+		});
 	}
-
-	emit('update-state', state);
 	return pollerResults;
 };
 
@@ -104,7 +94,7 @@ const processResult = async (simulationId: string) => {
 		type: SimulateEnsembleCiemssOperation.outputs[0].type,
 		label: nodeOutputLabel(props.node, `${portLabel} Result`),
 		value: [datasetResult.id],
-		state,
+		state: _.omit(state, ['chartSettings']),
 		isSelected: false
 	});
 };
@@ -124,14 +114,15 @@ watch(
 	async (id) => {
 		if (!id || id === '') return;
 
-		const response = await getStatus(id);
+		const response = await pollResult(id);
 		if (response?.state === PollerState.Done) {
+			const state = _.cloneDeep(props.node.state);
+			state.errorMessage = { name: '', value: '', traceback: '' };
+			state.inProgressForecastId = '';
+			state.forecastId = id;
+			emit('update-state', state);
 			await processResult(id);
 		}
-		const state = _.cloneDeep(props.node.state);
-		state.inProgressForecastId = '';
-		state.forecastId = id;
-		emit('update-state', state);
 	},
 	{ immediate: true }
 );

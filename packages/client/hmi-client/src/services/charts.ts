@@ -51,7 +51,6 @@ interface BaseChartOptions {
 	autosize?: AUTOSIZE;
 	dateOptions?: DateOptions;
 	scale?: string;
-	yMinExtent?: number;
 }
 
 export interface DateOptions {
@@ -64,6 +63,7 @@ export interface ForecastChartOptions extends BaseChartOptions {
 	fitYDomain?: boolean;
 	legendProperties?: Record<string, any>;
 	bins?: Map<string, number[]>;
+	yExtent?: [number, number];
 }
 
 export interface ForecastChartLayer {
@@ -83,6 +83,7 @@ export interface HistogramChartOptions extends BaseChartOptions {
 	maxBins?: number;
 	variables: { field: string; label?: string; width: number; color: string }[];
 	legendProperties?: Record<string, any>;
+	extent?: [number, number];
 }
 
 export interface ErrorChartOptions extends Omit<BaseChartOptions, 'height' | 'yAxisTitle' | 'legend'> {
@@ -290,6 +291,9 @@ export function createErrorChart(dataset: Record<string, any>[], options: ErrorC
 	} as any;
 }
 
+/* -------------------------------------------------------------------------- */
+/*                                 Histogram                                  */
+/* -------------------------------------------------------------------------- */
 export function createHistogramChart(dataset: Record<string, any>[], options: HistogramChartOptions) {
 	const maxBins = options.maxBins ?? 10;
 	const axisColor = '#EEE';
@@ -362,12 +366,14 @@ export function createHistogramChart(dataset: Record<string, any>[], options: Hi
 
 	spec.data = { values: data };
 
-	// Create an extent from the min max of the data across all variables, this is used to set the bin extent and let multiple histograms from different layers to share the same bin extent
-	const extent = [Infinity, -Infinity];
-	data.forEach((d) => {
-		extent[0] = Math.min(extent[0], Math.min(...Object.values(d)));
-		extent[1] = Math.max(extent[1], Math.max(...Object.values(d)));
-	});
+	const extent = options.extent ?? [Infinity, -Infinity];
+	if (!options.extent) {
+		// Create an extent from the min max of the data across all variables, this is used to set the bin extent and let multiple histograms from different layers to share the same bin extent
+		data.forEach((d) => {
+			extent[0] = Math.min(extent[0], Math.min(...Object.values(d)));
+			extent[1] = Math.max(extent[1], Math.max(...Object.values(d)));
+		});
+	}
 
 	const createLayers = (opts) => {
 		const colorScale = {
@@ -401,6 +407,45 @@ export function createHistogramChart(dataset: Record<string, any>[], options: Hi
 	return spec;
 }
 
+/* This function estimates the legend width, because if it's too we will have to draw it with columns since there's no linewrap */
+function estimateLegendWidth(items: string[], fontSize: number): number {
+	// Approximate width of each character (assuming monospace-like proportions)
+	const charWidth = fontSize * 0.3;
+
+	// Account for symbol width, padding, and spacing between items
+	const symbolWidth = fontSize * 2; // Symbol + padding
+	const itemSpacing = fontSize * 2; // Space between items
+
+	// Calculate total width
+	return items.reduce((totalWidth, item) => {
+		const itemWidth = item.length * charWidth + symbolWidth;
+		return totalWidth + itemWidth + itemSpacing;
+	}, 0);
+}
+
+function calculateLegendColumns(
+	isCompact: boolean,
+	estimatedWidth: number,
+	chartWidth: number,
+	numItems: number | undefined
+): number | undefined {
+	if (isCompact || !numItems) {
+		return isCompact ? 1 : undefined;
+	}
+
+	if (estimatedWidth <= chartWidth) {
+		return undefined; // Everything fits in one row
+	}
+
+	const avgItemWidth = (estimatedWidth / numItems) * 0.85; // Reduce by 15% since our estimation seems high
+
+	// Calculate how many columns can fit without any extra buffer
+	const maxColumns = Math.floor(chartWidth / avgItemWidth);
+
+	// Use as many columns as we can fit, up to the number of items
+	return Math.max(1, Math.min(maxColumns, numItems));
+}
+
 /**
  * Generate Vegalite specs for simulation/forecast charts. The chart can contain:
  *  - sampling layer: multiple forecast runsk
@@ -420,7 +465,6 @@ export function createHistogramChart(dataset: Record<string, any>[], options: Hi
  *
  * Then we use the new 'var' and 'value' columns to render timeseries
  * */
-
 export function createForecastChart(
 	samplingLayer: ForecastChartLayer | null,
 	statisticsLayer: ForecastChartLayer | null,
@@ -436,7 +480,7 @@ export function createForecastChart(
 				text: options.title,
 				anchor: 'start',
 				subtitle: ' ',
-				subtitlePadding: 4
+				subtitlePadding: 0
 			}
 		: null;
 
@@ -451,17 +495,43 @@ export function createForecastChart(
 	};
 	const yaxis = structuredClone(xaxis);
 	yaxis.title = options.yAxisTitle;
-
 	const translationMap = options.translationMap;
 	let labelExpr = '';
 	if (translationMap) {
-		Object.keys(translationMap).forEach((key) => {
-			labelExpr += `datum.value === '${key}' ? '${translationMap[key]}' : `;
-		});
+		const allVariables = [
+			...(samplingLayer?.variables ?? []),
+			...(statisticsLayer?.variables ?? []),
+			...(groundTruthLayer?.variables ?? [])
+		];
+		Object.keys(translationMap)
+			.filter((key) => allVariables.includes(key))
+			.forEach((key) => {
+				labelExpr += `datum.value === '${key}' ? '${translationMap[key]}' : `;
+			});
 		labelExpr += " 'other'";
 	}
 
+	// Get all unique legend items
+	const getAllLegendItems = () => {
+		const items = new Set<string>();
+		if (statisticsLayer?.variables) {
+			statisticsLayer.variables.forEach((v) => items.add(translationMap?.[v] ?? v));
+		}
+		if (groundTruthLayer?.variables) {
+			groundTruthLayer.variables.forEach((v) => items.add(translationMap?.[v] ?? v));
+		}
+		if (options.bins) {
+			Array.from(options.bins.keys()).forEach((v) => items.add(v.toString()));
+		}
+		return Array.from(items);
+	};
+
 	const isCompact = options.width < 200;
+	const legendFontSize = isCompact ? 8 : 12;
+
+	// Estimate total legend width
+	const legendItems = getAllLegendItems();
+	const estimatedWidth = estimateLegendWidth(legendItems, legendFontSize);
 
 	const legendProperties = {
 		title: null,
@@ -473,8 +543,12 @@ export function createForecastChart(
 		symbolSize: 200,
 		labelFontSize: isCompact ? 8 : 12,
 		labelOffset: isCompact ? 2 : 4,
-		labelLimit: isCompact ? 50 : 150,
+		labelLimit: isCompact ? 100 : 250,
+		columnPadding: 16,
 		symbolType: 'stroke',
+		offset: isCompact ? 8 : 16,
+		// Add columns if legend would overflow
+		columns: calculateLegendColumns(isCompact, estimatedWidth, options.width, legendItems.length),
 		...options.legendProperties
 	};
 
@@ -492,7 +566,6 @@ export function createForecastChart(
 			font: globalFont,
 			legend: {
 				layout: {
-					direction: legendProperties.direction,
 					anchor: 'start'
 				}
 			}
@@ -554,11 +627,12 @@ export function createForecastChart(
 		const encodingY: ChartEncoding = {
 			field: 'valueField',
 			type: 'quantitative',
-			axis: yaxis
+			axis: yaxis,
+			scale: {}
 		};
 
 		if (options.scale === 'log') {
-			encodingY.scale = { type: 'symlog' };
+			encodingY.scale.type = 'symlog';
 		}
 
 		if (options.fitYDomain && layer.data[0]) {
@@ -568,10 +642,12 @@ export function createForecastChart(
 				const yValues = [...layer.data].map((datum) => datum[yField]);
 				const domainMin = Math.min(...yValues);
 				const domainMax = Math.max(...yValues);
-				encodingY.scale = {
-					domain: [domainMin, domainMax]
-				};
+				encodingY.scale.domain = [domainMin, domainMax];
 			}
+		}
+
+		if (options.yExtent) {
+			encodingY.scale.domain = options.yExtent;
 		}
 
 		const encoding = {
@@ -599,27 +675,65 @@ export function createForecastChart(
 		} as any;
 	};
 
+	const buildStatLayer = statisticsLayer && !isEmpty(statisticsLayer.variables) && !isEmpty(statisticsLayer.data);
+
+	// Build expression to check if the legend item is selected for each layer.
+	const LEGEND_SELECT_PARAM = 'legend_selection';
+	const sampleToStatVar = {};
+	// Assume that the sampling layer and the statistics layer have the same number of corresponding variables in the same order
+	(samplingLayer?.variables ?? []).forEach((sampleVar, index) => {
+		sampleToStatVar[sampleVar] = (statisticsLayer?.variables ?? [])[index];
+	});
+	const sampleLayerlegendSelctionTestExpr = buildStatLayer
+		? `!${LEGEND_SELECT_PARAM}.variableField || indexof(${LEGEND_SELECT_PARAM}.variableField || [], (${JSON.stringify(sampleToStatVar)})[datum.variableField]) >= 0`
+		: 'true';
+	const statLayerlegendSelectionTestExpr = `!${LEGEND_SELECT_PARAM}.variableField || indexof(${LEGEND_SELECT_PARAM}.variableField || [], datum.variableField) >= 0`;
+
 	// Build sample layer
 	if (samplingLayer && !isEmpty(samplingLayer.variables) && !isEmpty(samplingLayer.data)) {
 		const layerSpec = newLayer(samplingLayer, 'line');
-		const encoding = layerSpec.layer[0].encoding;
-		Object.assign(encoding, {
+		const lineSubLayer = layerSpec.layer[0];
+
+		Object.assign(lineSubLayer.encoding, {
 			detail: { field: samplingLayer.groupField, type: 'nominal' },
 			strokeWidth: { value: 1 },
-			opacity: { value: options.bins ? 1.0 : 0.1 }
+			opacity: options.bins
+				? { value: 1.0 } // If bins enabled, use full opacity
+				: {
+						condition: {
+							test: sampleLayerlegendSelctionTestExpr, // Use selection to highlight the selected line
+							value: 0.13
+						},
+						value: 0.02
+					}
 		});
 
 		spec.layer.push(layerSpec);
 	}
 
 	// Build statistical layer
-	if (statisticsLayer && !isEmpty(statisticsLayer.variables) && !isEmpty(statisticsLayer.data)) {
+	if (buildStatLayer) {
 		const layerSpec = newLayer(statisticsLayer, 'line');
 		const lineSubLayer = layerSpec.layer[0];
 
+		// Add interactive legend params, keeping original name
+		lineSubLayer.params = [
+			{
+				name: LEGEND_SELECT_PARAM,
+				select: { type: 'point', fields: ['variableField'] },
+				bind: 'legend'
+			}
+		];
+
 		Object.assign(lineSubLayer.encoding, {
-			opacity: { value: 1.0 },
-			strokeWidth: { value: 2 }
+			strokeWidth: { value: 2 },
+			opacity: {
+				condition: {
+					test: statLayerlegendSelectionTestExpr,
+					value: 1
+				},
+				value: 0.02
+			}
 		});
 
 		if (options.legend === true) {
@@ -683,7 +797,9 @@ export function createForecastChart(
 				}
 			]
 		};
-		layerSpec.layer.push(verticalLineLayer);
+		if (!isCompact) {
+			layerSpec.layer.push(verticalLineLayer);
+		}
 		// Add a small rectangle behind the timeLabelLayer to make the time more readable
 		const timeLabelBackgroundLayer = {
 			mark: {
@@ -719,7 +835,9 @@ export function createForecastChart(
 				}
 			}
 		};
-		layerSpec.layer.push(timeLabelBackgroundLayer);
+		if (!isCompact) {
+			layerSpec.layer.push(timeLabelBackgroundLayer);
+		}
 
 		// Add a label with the current X value (time) for the vertical line
 		const timeLabelLayer = {
@@ -727,8 +845,7 @@ export function createForecastChart(
 				type: 'text',
 				align: 'center',
 				color: '#111111',
-				dx: 0,
-				dy: -options.height / 2
+				dx: 0
 			},
 			encoding: {
 				text: {
@@ -738,6 +855,9 @@ export function createForecastChart(
 				x: {
 					field: statisticsLayer.timeField,
 					type: 'quantitative'
+				},
+				y: {
+					value: 0
 				},
 				opacity: {
 					condition: [
@@ -756,8 +876,12 @@ export function createForecastChart(
 				}
 			}
 		};
-		layerSpec.layer.push(timeLabelLayer);
-
+		if (!isCompact) {
+			layerSpec.layer.push(timeLabelLayer);
+		}
+		// Expression to test if the legend item is selected and the point is hovered or clicked
+		const hoverAndSelectLegend = `((hover.${statisticsLayer.timeField} || [])[0] === datum.${statisticsLayer.timeField}) && (!legend_selection.variableField || indexof(legend_selection.variableField || [], datum.variableField) >= 0)`;
+		const clickAndSelectLegend = `((click.${statisticsLayer.timeField} || [])[0] === datum.${statisticsLayer.timeField}) && (!legend_selection.variableField || indexof(legend_selection.variableField || [], datum.variableField) >= 0)`;
 		// Add tooltip points for the vertical line
 		const pointLayer = {
 			mark: {
@@ -784,21 +908,21 @@ export function createForecastChart(
 				opacity: {
 					condition: [
 						{
-							param: 'hover',
-							value: 1,
-							empty: false
+							test: hoverAndSelectLegend,
+							value: 1
 						},
 						{
-							param: 'click',
-							value: 1,
-							empty: false
+							test: clickAndSelectLegend,
+							value: 1
 						}
 					],
 					value: 0
 				}
 			}
 		};
-		layerSpec.layer.push(pointLayer);
+		if (!isCompact) {
+			layerSpec.layer.push(pointLayer);
+		}
 
 		// Add labels for each point for tooltip.
 		// This is the base layer with a white stroke around it to make the text readable
@@ -837,21 +961,21 @@ export function createForecastChart(
 				opacity: {
 					condition: [
 						{
-							param: 'hover',
-							value: 1,
-							empty: false
+							test: hoverAndSelectLegend,
+							value: 1
 						},
 						{
-							param: 'click',
-							value: 1,
-							empty: false
+							test: clickAndSelectLegend,
+							value: 1
 						}
 					],
 					value: 0
 				}
 			}
 		};
-		layerSpec.layer.push(labelLayerBase);
+		if (!isCompact) {
+			layerSpec.layer.push(labelLayerBase);
+		}
 		// This is the top layer no stroke
 		const labelLayer = {
 			mark: {
@@ -885,21 +1009,21 @@ export function createForecastChart(
 				opacity: {
 					condition: [
 						{
-							param: 'hover',
-							value: 1,
-							empty: false
+							test: hoverAndSelectLegend,
+							value: 1
 						},
 						{
-							param: 'click',
-							value: 1,
-							empty: false
+							test: clickAndSelectLegend,
+							value: 1
 						}
 					],
 					value: 0
 				}
 			}
 		};
-		layerSpec.layer.push(labelLayer);
+		if (!isCompact) {
+			layerSpec.layer.push(labelLayer);
+		}
 
 		spec.layer.push(layerSpec);
 	}
@@ -927,7 +1051,10 @@ export function createForecastChart(
 	return spec;
 }
 
-/**
+/* -------------------------------------------------------------------------- */
+/*                                 Quantile chart                             */
+/* -------------------------------------------------------------------------- */
+/*
  * e.g. [{variable1: [1, 2, 3], variable2: [4, 5, 6]}, ...] where each item in the variable array is a sample value. Sample values must be sorted in ascending order.
  */
 export type GroupedDataArray = Record<string, number[]>[];
@@ -1000,7 +1127,7 @@ export function createQuantilesForecastChart(
 				labelExpr += `datum.value === '${key}' ? '${translationMap[key]}' : `;
 				varDisplayNameExpr += `datum.variable === '${key}' ? '${translationMap[key]}' : `;
 			});
-		labelExpr += " 'other'";
+		labelExpr += " '(baseline)'";
 		varDisplayNameExpr += " 'other'";
 	}
 
@@ -1016,11 +1143,29 @@ export function createQuantilesForecastChart(
 		symbolSize: 200,
 		labelFontSize: isCompact ? 8 : 12,
 		labelOffset: isCompact ? 2 : 4,
-		labelLimit: isCompact ? 50 : 150,
+		labelLimit: isCompact ? 100 : 250,
+		columnPadding: 16,
 		...options.legendProperties
 	};
 
 	const yScale = { type: options.scale === 'log' ? 'symlog' : 'linear' };
+
+	const LEGEND_SELECT_PARAM = 'legend_selection';
+	const encodingColor = (legend = false) => ({
+		field: 'variable',
+		type: 'nominal',
+		scale: {
+			domain: variables,
+			range: options.colorscheme || CATEGORICAL_SCHEME
+		},
+		legend:
+			legend && options.legend
+				? {
+						...legendProperties,
+						labelExpr: labelExpr.length && labelExpr
+					}
+				: false
+	});
 
 	const spec: any = {
 		$schema: VEGALITE_SCHEMA,
@@ -1049,47 +1194,58 @@ export function createQuantilesForecastChart(
 		],
 		layer: [
 			{
-				mark: {
-					type: 'errorband',
-					extent: 'ci',
-					borders: true
-				},
-				encoding: {
-					x: { field: 'x', type: 'quantitative', axis: { ...xaxis } },
-					y: { field: 'lower', type: 'quantitative', axis: { ...yaxis }, scale: yScale },
-					y2: { field: 'upper', type: 'quantitative' },
-					color: {
-						field: 'variable',
-						type: 'nominal',
-						scale: {
-							domain: variables,
-							range: options.colorscheme || CATEGORICAL_SCHEME
+				layer: [
+					{
+						// Dummy line to create a legend
+						mark: 'line',
+						encoding: { color: encodingColor(true) },
+						params: [
+							{
+								name: LEGEND_SELECT_PARAM,
+								select: { type: 'point', fields: ['variable'] },
+								bind: 'legend'
+							}
+						]
+					},
+					{
+						mark: {
+							type: 'errorband',
+							extent: 'ci',
+							borders: true
 						},
-						legend: options.legend
-							? {
-									...legendProperties,
-									labelExpr: labelExpr.length && labelExpr
-								}
-							: false
-					},
-					opacity: {
-						field: 'quantile',
-						type: 'quantitative',
-						scale: { domain: [0.5, 1], range: [1, 0.1] },
-						legend: false
-					},
-					tooltip: [
-						{ field: 'varDisplayName', title: ' ' },
-						{ field: 'quantile', title: 'Quantile', format: '.0%' },
-						{ field: 'lower', title: 'Lower Bound' },
-						{ field: 'upper', title: 'Upper Bound' }
-					]
-				}
+						encoding: {
+							x: { field: 'x', type: 'quantitative', axis: { ...xaxis } },
+							y: { field: 'lower', type: 'quantitative', axis: { ...yaxis }, scale: yScale },
+							y2: { field: 'upper', type: 'quantitative' },
+							color: encodingColor(),
+							opacity: {
+								legend: false,
+								condition: {
+									param: LEGEND_SELECT_PARAM,
+									field: 'quantile',
+									type: 'quantitative',
+									scale: { domain: [0.5, 1], range: [1, 0.1] },
+									legend: false
+								},
+								value: 0.03 // Default opacity for non-selected variables
+							},
+							tooltip: [
+								{ field: 'varDisplayName', title: ' ' },
+								{ field: 'quantile', title: 'Quantile', format: '.0%' },
+								{ field: 'lower', title: 'Lower Bound' },
+								{ field: 'upper', title: 'Upper Bound' }
+							]
+						}
+					}
+				]
 			}
 		]
 	};
 	return spec;
 }
+/* -------------------------------------------------------------------------- */
+/*                                 Sensitivity Scatterplot                    */
+/* -------------------------------------------------------------------------- */
 
 /**
  * FIXME: The design calls for combinations of different types of charts
@@ -1122,7 +1278,7 @@ export function createSimulateSensitivityScatter(samplingLayer: SensitivityChart
 			mark: { type: 'point', filled: true },
 			encoding: {
 				x: {
-					field: { repeat: 'row' },
+					field: { repeat: 'column' },
 					type: 'quantitative',
 					axis: {
 						gridColor: '#EEE'
@@ -1133,11 +1289,11 @@ export function createSimulateSensitivityScatter(samplingLayer: SensitivityChart
 					}
 				},
 				y: {
-					field: { repeat: 'column' },
+					field: { repeat: 'row' },
 					type: 'quantitative',
 					axis: {
 						gridColor: '#EEE',
-						domain: options.yMinExtent ? [0, options.yMinExtent] : undefined
+						domain: options.yExtent
 					},
 					scale: {
 						zero: false,
@@ -1162,16 +1318,76 @@ export function createSimulateSensitivityScatter(samplingLayer: SensitivityChart
 	return spec;
 }
 
-export function applyForecastChartAnnotations(chartSpec: any, annotations: ChartAnnotation[]) {
+/* -------------------------------------------------------------------------- */
+/*                          Sensitivity Ranking Chart                         */
+/* -------------------------------------------------------------------------- */
+
+export function createSensitivityRankingChart(data: Map<string, number>, options: BaseChartOptions) {
+	const spec: any = {
+		$schema: VEGALITE_SCHEMA,
+		description: 'Sensitivity score ranking chart',
+		data: { values: Array.from(data).map(([parameter, score]) => ({ parameter, score })) },
+		transform: [
+			{
+				calculate: 'abs(datum.score)',
+				as: 'abs_value'
+			}
+		],
+		width: options.width,
+		mark: { type: 'bar' },
+		layer: [
+			{
+				mark: { type: 'bar', height: 10 },
+				encoding: {
+					x: {
+						field: 'score',
+						type: 'quantitative'
+					},
+					y: {
+						field: 'parameter',
+						type: 'ordinal',
+						sort: {
+							field: 'abs_value',
+							order: 'descending'
+						},
+						scale: {
+							paddingInner: 0.01,
+							paddingOuter: 0.02
+						}
+					},
+					color: { value: '#1B8073' }
+				}
+			},
+			// add vertical line a 0
+			{
+				mark: { type: 'rule' },
+				encoding: {
+					x: { datum: 0 }
+				}
+			}
+		]
+	};
+	return spec;
+}
+
+/**
+ * Applies annotation layers to a forecast chart. Each annotation is represented as a layer specification object.
+ * By default, the annotation layers are added as sub-layers to the second layer (statistics layer) of the forecast chart specification.
+ *
+ * @param chartSpec - The forecast chart specification.
+ * @param annotations - A list of annotations to be applied.
+ * @param targetLayerIndex - The index of the target layer to which the annotations will be attached (default is 1).
+ * @returns The updated chart specification with the applied annotations.
+ */
+export function applyForecastChartAnnotations(chartSpec: any, annotations: ChartAnnotation[], targetLayerIndex = 1) {
 	if (isEmpty(annotations)) return chartSpec;
-	const targetLayerIndex = 1; // Assume the target layer is the second layer which is the statistic layer
 	const layerSpecs = annotations.map((a) => a.layerSpec);
 	if (!chartSpec.layer[targetLayerIndex]) return chartSpec;
 	chartSpec.layer[targetLayerIndex].layer.push(...layerSpecs);
 	return chartSpec;
 }
 
-export function createForecastChartAnnotation(axis: 'x' | 'y', datum: number, label: string) {
+export function createForecastChartAnnotation(axis: 'x' | 'y', datum: number, label: string, isVertical?: boolean) {
 	const layerSpec = {
 		description: `At ${axis} ${datum}, add a label '${label}'.`,
 		encoding: {
@@ -1187,9 +1403,11 @@ export function createForecastChartAnnotation(axis: 'x' | 'y', datum: number, la
 			{
 				mark: {
 					type: 'text',
-					align: 'left',
-					dx: 5,
-					dy: -5
+					align: 'center',
+					dx: 16,
+					dy: -16,
+					angle: isVertical ? 90 : 0,
+					baseline: 'top'
 				},
 				encoding: {
 					text: { value: label }
@@ -1321,7 +1539,7 @@ export function createSuccessCriteriaChart(
 			{
 				mark: {
 					type: 'text',
-					align: 'left',
+					align: 'center',
 					text: `Threshold = ${+threshold}`,
 					baseline: 'line-bottom'
 				},
@@ -1340,7 +1558,7 @@ export function createSuccessCriteriaChart(
 			{
 				mark: {
 					type: 'text',
-					align: 'left',
+					align: 'center',
 					text: `Average of worst ${100 - alpha}% = ${risk.toFixed(4)}`,
 					baseline: 'line-bottom'
 				},
@@ -1368,7 +1586,7 @@ export function createInterventionChartMarkers(
 		data: { values: data },
 		mark: {
 			type: 'text',
-			align: 'left',
+			align: 'center',
 			angle: 90,
 			dx: options.labelXOffset || 0 - 45,
 			dy: -10,
@@ -1776,5 +1994,107 @@ export function createFunmanParameterCharts(
 				}
 			]
 		}
+	};
+}
+
+export function createRankingInterventionsChart(
+	values: { score: number; policyName: string; configName: string }[],
+	interventionNameColorMap: Record<string, string>,
+	title: string | null = null,
+	variableName: string | null = null
+) {
+	const globalFont = 'Figtree';
+
+	return {
+		$schema: VEGALITE_SCHEMA,
+		config: {
+			font: globalFont,
+			bar: {
+				discreteBandSize: 20 // Fixed bar width
+			},
+			view: {
+				continuousWidth: 600 // Total chart width stays fixed
+			},
+			axis: {
+				labelAngle: 0
+			}
+		},
+		title: {
+			text: title,
+			anchor: 'start',
+			frame: 'group',
+			offset: 10,
+			fontSize: 14
+		},
+		width: 600,
+		data: {
+			values
+		},
+		encoding: {
+			x: {
+				field: 'index',
+				type: 'nominal',
+				sort: null,
+				title: 'Rank'
+			},
+			y: {
+				field: 'score',
+				type: 'quantitative',
+				// If a specific variable is selected the score should hold its actual value
+				title: variableName || 'Score',
+				axis: {
+					gridColor: {
+						condition: { test: 'datum.value === 0', value: 'black' },
+						value: '#DDDDDD'
+					},
+					gridWidth: {
+						condition: { test: 'datum.value === 0', value: 1 },
+						value: 1
+					}
+				}
+			},
+			color: {
+				field: 'policyName',
+				type: 'nominal',
+				scale: {
+					domain: Object.keys(interventionNameColorMap),
+					range: Object.values(interventionNameColorMap)
+				},
+				legend: {
+					title: null,
+					orient: 'top'
+				}
+			}
+		},
+		transform: [
+			{ window: [{ op: 'row_number', as: 'index' }] },
+			{
+				calculate: "datum.configName ? datum.policyName + ' - ' + datum.configName : datum.policyName",
+				as: 'name'
+			}
+		],
+
+		spacing: 20, // Adds space between bars
+		layer: [
+			{
+				mark: 'bar'
+			},
+			{
+				mark: {
+					type: 'text',
+					align: 'left',
+					baseline: 'middle',
+					dy: -20,
+					dx: 5,
+					angle: 90,
+					fill: 'black',
+					padding: 4
+				},
+				encoding: {
+					text: { field: 'name', type: 'nominal', color: 'black' },
+					y: { value: 0 } // This positions the text at the top of the chart
+				}
+			}
+		]
 	};
 }

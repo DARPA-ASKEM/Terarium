@@ -43,18 +43,16 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import software.uncharted.terarium.hmiserver.configuration.Config;
 import software.uncharted.terarium.hmiserver.models.dataservice.CsvAsset;
-import software.uncharted.terarium.hmiserver.models.dataservice.CsvColumnStats;
 import software.uncharted.terarium.hmiserver.models.dataservice.PresignedURL;
 import software.uncharted.terarium.hmiserver.models.dataservice.ResponseDeleted;
 import software.uncharted.terarium.hmiserver.models.dataservice.ResponseStatus;
 import software.uncharted.terarium.hmiserver.models.dataservice.dataset.Dataset;
-import software.uncharted.terarium.hmiserver.proxies.climatedata.ClimateDataProxy;
 import software.uncharted.terarium.hmiserver.proxies.jsdelivr.JsDelivrProxy;
 import software.uncharted.terarium.hmiserver.security.Roles;
 import software.uncharted.terarium.hmiserver.service.CurrentUserService;
 import software.uncharted.terarium.hmiserver.service.data.DatasetService;
-import software.uncharted.terarium.hmiserver.service.data.ProjectAssetService;
 import software.uncharted.terarium.hmiserver.service.data.ProjectService;
+import software.uncharted.terarium.hmiserver.service.gollm.DatasetStatistics;
 import software.uncharted.terarium.hmiserver.utils.Messages;
 import software.uncharted.terarium.hmiserver.utils.rebac.Schema;
 
@@ -69,12 +67,11 @@ public class DatasetController {
 	final Config config;
 
 	final DatasetService datasetService;
-	final ClimateDataProxy climateDataProxy;
+	final DatasetStatistics datasetStatistics;
 
 	final JsDelivrProxy githubProxy;
 
 	final ProjectService projectService;
-	final ProjectAssetService projectAssetService;
 	final CurrentUserService currentUserService;
 	final Messages messages;
 
@@ -139,25 +136,53 @@ public class DatasetController {
 		@PathVariable("id") final UUID id,
 		@RequestParam(name = "project-id", required = false) final UUID projectId
 	) {
-		final Schema.Permission permission = projectService.checkPermissionCanReadOrNone(
-			currentUserService.get().getId(),
-			projectId
-		);
+		final String userId = currentUserService.get().getId();
+		final Schema.Permission permission = projectService.checkPermissionCanReadOrNone(userId, projectId);
 
 		try {
-			final Optional<Dataset> dataset = datasetService.getAsset(id, permission);
+			Dataset dataset = datasetService
+				.getAsset(id, permission)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("dataset.not-found")));
 
-			if (dataset.isEmpty()) {
-				return ResponseEntity.noContent().build();
-			}
 			// GETs not associated to a projectId cannot read private or temporary assets
-			if (
-				permission.equals(Schema.Permission.NONE) && (!dataset.get().getPublicAsset() || dataset.get().getTemporary())
-			) {
+			if (permission.equals(Schema.Permission.NONE) && (!dataset.getPublicAsset() || dataset.getTemporary())) {
 				throw new ResponseStatusException(HttpStatus.FORBIDDEN, messages.get("rebac.unauthorized-read"));
 			}
 
-			return dataset.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+			// If the user as write permission, and the stats are not present, calculate them
+			final Schema.Permission permissionCanWrite = projectService.checkPermissionCanWrite(userId, projectId);
+			if (
+				permissionCanWrite.equals(Schema.Permission.WRITE) &&
+				dataset.getColumns().stream().anyMatch(column -> column.getStats() == null)
+			) {
+				// Calculate the statistics for the columns
+				final Optional<PresignedURL> datasetUrl = datasetService.getDownloadUrl(
+					dataset.getId(),
+					dataset.getFileNames().get(0)
+				);
+
+				if (datasetUrl.isEmpty()) {
+					log.warn("Error calculating statistics for dataset {}", dataset.getId());
+				} else {
+					try {
+						datasetStatistics.add(dataset, datasetUrl.get());
+
+						// Update and fetch updated dataset
+						datasetService.updateAsset(dataset, projectId, Schema.Permission.WRITE);
+						Optional<Dataset> updatedDataset = datasetService.getAsset(id, permission);
+
+						if (updatedDataset.isEmpty()) {
+							log.warn("Failed to get dataset after update");
+						} else {
+							dataset = updatedDataset.get();
+						}
+					} catch (final Exception e) {
+						log.error("Error calculating statistics for dataset {}", dataset.getId(), e);
+					}
+				}
+			}
+
+			return ResponseEntity.ok(dataset);
 		} catch (final Exception e) {
 			log.error("Unable to get dataset", e);
 			throw new ResponseStatusException(
@@ -289,11 +314,6 @@ public class DatasetController {
 			);
 		}
 
-		// We have a parser over our CSV file. Now for the front end we need to create a matrix of strings
-		// to represent the CSV file up to our limit. Then we need to calculate the column statistics.
-
-		// TODO - this should be done on csv post/push, and in task to handle large files.
-
 		int rowcount = 0;
 		final List<List<String>> csv = new ArrayList<>();
 
@@ -304,14 +324,7 @@ public class DatasetController {
 			rowcount++;
 		}
 
-		final List<CsvColumnStats> csvColumnStats = DatasetService.calculateColumnStatistics(csv);
-
-		final CsvAsset csvAsset = new CsvAsset(
-			csv,
-			csvColumnStats,
-			new ArrayList<>(csvParser.getHeaderMap().keySet()),
-			rowcount
-		);
+		final CsvAsset csvAsset = new CsvAsset(csv, new ArrayList<>(csvParser.getHeaderMap().keySet()), rowcount);
 
 		final CacheControl cacheControl = CacheControl.maxAge(
 			config.getCacheHeadersMaxAge(),
@@ -441,7 +454,7 @@ public class DatasetController {
 	}
 
 	/**
-	 * Uploads a CSV file from github given the path and owner name, then uploads
+	 * Uploads a CSV file from GitHub given the path and owner name, then uploads
 	 * it to the dataset.
 	 */
 	@PutMapping("/{id}/upload-csv-from-github")
@@ -474,7 +487,7 @@ public class DatasetController {
 
 		log.debug("Uploading CSV file from github to dataset {}", datasetId);
 
-		// download CSV from github
+		// download CSV from GitHub
 		final String csvString = githubProxy.getGithubCode(repoOwnerAndName, path).getBody();
 
 		if (csvString == null) {
@@ -486,7 +499,7 @@ public class DatasetController {
 			);
 		}
 
-		CSVParser csvParser = null;
+		CSVParser csvParser;
 		try {
 			csvParser = new CSVParser(
 				new StringReader(csvString),
@@ -715,6 +728,17 @@ public class DatasetController {
 				// add the filename to existing file names
 				if (!updatedDataset.get().getFileNames().contains(filename)) {
 					updatedDataset.get().getFileNames().add(filename);
+				}
+
+				// Calculate the statistics for the columns
+				try {
+					final PresignedURL datasetUrl = datasetService
+						.getDownloadUrl(updatedDataset.get().getId(), filename)
+						.orElseThrow(() -> new IllegalArgumentException(messages.get("dataset.download.url.not.found")));
+
+					datasetStatistics.add(updatedDataset.get(), datasetUrl);
+				} catch (final Exception e) {
+					log.error("Error calculating statistics for dataset {}", updatedDataset.get().getId(), e);
 				}
 
 				datasetService.updateAsset(updatedDataset.get(), projectId, hasWritePermission);

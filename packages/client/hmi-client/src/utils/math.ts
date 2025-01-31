@@ -283,3 +283,82 @@ export function calculateUncertaintyRange(value: number, percentage: number): { 
 		max
 	};
 }
+
+/**
+ * Calculates the percentage value given a numerator and a denominator.
+ *
+ * @param numerator - The numerator value.
+ * @param denominator - The denominator value.
+ * @returns The calculated percentage value.
+ */
+export function calculatePercentage(numerator: number, denominator: number): number {
+	if (denominator === 0) {
+		return 0;
+	}
+	return (numerator / denominator) * 100;
+}
+
+/**
+ * Sums the corresponding elements of multiple arrays of numbers.
+ *
+ * @param arrays - An array of arrays of numbers.
+ * @returns A new array where each element is the sum of the corresponding elements of the input arrays.
+ * @throws Will throw an error if the input arrays are not of the same length.
+ */
+export function sumArrays(...arrays: number[][]): number[] {
+	if (arrays.length === 0) {
+		throw new Error('At least one array is required');
+	}
+
+	const length = arrays[0].length;
+	if (!arrays.every((array) => array.length === length)) {
+		throw new Error('All arrays must be of the same length');
+	}
+
+	const result = new Array(length).fill(0);
+	// eslint-disable-next-line
+	for (const array of arrays) {
+		for (let i = 0; i < length; i++) {
+			result[i] += array[i];
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Divides the corresponding elements of two arrays of numbers.
+ *
+ * @param array1 - The first array of numbers.
+ * @param array2 - The second array of numbers.
+ * @returns A new array where each element is the result of dividing the corresponding elements of `array1` by `array2`.
+ * @throws Will throw an error if the input arrays are not of the same length.
+ */
+export function divideArrays(array1: number[], array2: number[]): number[] {
+	if (array1.length !== array2.length) {
+		throw new Error('Arrays must be of the same length');
+	}
+
+	const result = new Array(array1.length);
+	for (let i = 0; i < array1.length; i++) {
+		if (array2[i] === 0) {
+			// Division by zero
+			result[i] = NaN;
+		}
+		result[i] = array1[i] / array2[i];
+	}
+	return result;
+}
+
+/**
+ * Calculates the percentage values given arrays of numerators and denominators.
+ *
+ * @param numerators - An array of numerator values.
+ * @param denominators - An array of denominator values.
+ * @returns An array of calculated percentage values.
+ * @throws Will throw an error if the input arrays are not of the same length.
+ */
+export function calculatePercentages(numerators: number[], denominators: number[]): number[] {
+	const ratios = divideArrays(numerators, denominators);
+	return ratios.map((ratio) => (Number.isNaN(ratio) ? 0 : ratio * 100));
+}

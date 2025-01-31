@@ -23,7 +23,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import software.uncharted.terarium.hmiserver.models.dataservice.AssetType;
 import software.uncharted.terarium.hmiserver.models.dataservice.ResponseDeleted;
+import software.uncharted.terarium.hmiserver.models.dataservice.project.Project;
 import software.uncharted.terarium.hmiserver.models.simulationservice.interventions.InterventionPolicy;
 import software.uncharted.terarium.hmiserver.security.Roles;
 import software.uncharted.terarium.hmiserver.service.CurrentUserService;
@@ -102,23 +104,26 @@ public class InterventionController {
 	)
 	public ResponseEntity<InterventionPolicy> createIntervention(
 		@RequestBody final InterventionPolicy item,
+		@RequestParam(name = "skip-check", required = false, defaultValue = "false") final boolean skipCheck,
 		@RequestParam(name = "project-id", required = false) final UUID projectId
 	) {
 		final Schema.Permission permission = projectService.checkPermissionCanWrite(
 			currentUserService.get().getId(),
 			projectId
 		);
+
 		try {
-			item.validateInterventionPolicy();
+			if (skipCheck != true) {
+				item.validateInterventionPolicy();
+			}
 		} catch (final Exception e) {
 			final String error = "Failed to validate intervention";
 			log.error(error, e);
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
 		}
 		try {
-			return ResponseEntity.status(HttpStatus.CREATED).body(
-				interventionService.createAsset(item, projectId, permission)
-			);
+			final InterventionPolicy policy = interventionService.createAsset(item, projectId, permission);
+			return ResponseEntity.status(HttpStatus.CREATED).body(policy);
 		} catch (final IOException e) {
 			final String error = "Unable to create intervention";
 			log.error(error, e);

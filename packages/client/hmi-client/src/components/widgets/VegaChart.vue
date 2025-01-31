@@ -8,6 +8,14 @@
 		:closeOnEscape="true"
 		@show="onExpand"
 	>
+		<template #header>
+			<Button
+				icon="pi pi-times"
+				class="p-dialog-header-icon p-dialog-header-close"
+				style="margin-left: auto"
+				@click="isExpanded = false"
+			/>
+		</template>
 		<div>
 			<div ref="vegaContainerLg"></div>
 		</div>
@@ -266,9 +274,10 @@ defineExpose({
 </style>
 <style scoped>
 .vega-chart-container {
+	display: flex;
+	justify-content: center;
 	background: var(--surface-0);
 	margin-bottom: var(--gap-4);
-	padding-top: var(--gap-2);
 	footer {
 		padding: var(--gap-3);
 	}

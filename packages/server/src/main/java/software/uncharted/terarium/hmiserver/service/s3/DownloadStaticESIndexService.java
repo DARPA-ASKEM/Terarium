@@ -37,7 +37,7 @@ public class DownloadStaticESIndexService {
 	@Value("${terarium.static-index-path}")
 	private String staticIndexPath;
 
-	private static final String EPI_ROOT = "epi_dkg_20241030";
+	private static final String EPI_ROOT = "epi_dkg_20250128";
 	private static final String AWS_ID = "static-index";
 	private final Environment env;
 
