@@ -59,8 +59,8 @@ jobs:
           push: true
           tags: ${{ needs.image-tag.outputs.tagged-image-name }}--amd64
 
-  arm64-emulation:
-    runs-on: ubuntu-24.04
+  arm64:
+    runs-on: ubuntu-24.04-arm
     needs: image-tag
     permissions:
       contents: read
@@ -72,9 +72,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Checkout the repository
         uses: actions/checkout@v4
@@ -103,7 +100,7 @@ jobs:
     needs:
       - image-tag
       - amd64
-      - arm64-emulation
+      - arm64
     uses: ./.github/workflows/merge-images.yml
     with:
       name: ${{ needs.image-tag.outputs.tagged-image-name }}
