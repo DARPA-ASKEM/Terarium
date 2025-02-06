@@ -10,7 +10,7 @@ setup(
         "jsonschema",
         "openai",
         "pandas",
-        "pydantic==2.10.4",
+        "pydantic==2.10.6",
         "regex",
         "tiktoken"
     ],
