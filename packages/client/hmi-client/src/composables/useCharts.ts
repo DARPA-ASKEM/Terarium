@@ -48,12 +48,13 @@ import {
 	isCalibrateEnsembleMappingRow
 } from '@/components/workflow/ops/calibrate-ensemble-ciemss/calibrate-ensemble-ciemss-operation';
 import { SimulateEnsembleMappingRow } from '@/components/workflow/ops/simulate-ensemble-ciemss/simulate-ensemble-ciemss-operation';
-import { getModelConfigName } from '@/services/model-configurations';
+import { getModelConfigName, getParameters } from '@/services/model-configurations';
 import { EnsembleErrorData } from '@/components/workflow/ops/calibrate-ensemble-ciemss/calibrate-ensemble-util';
 import { PlotValue } from '@/components/workflow/ops/compare-datasets/compare-datasets-operation';
 import { DATASET_VAR_NAME_PREFIX } from '@/services/dataset';
 import { calculatePercentage } from '@/utils/math';
 import { pythonInstance } from '@/python/PyodideController';
+import { DistributionType } from '@/services/distribution';
 import { useChartAnnotations } from './useChartAnnotations';
 
 export interface ChartData {
@@ -1209,7 +1210,27 @@ export function useCharts(
 				options.title = `${settings.selectedVariables[0]} sensitivity`;
 				options.legendProperties = { direction: 'vertical', columns: 1, labelLimit: 500 };
 
-				const rankingSpec = createSensitivityRankingChart(rankingScores.value.get(selectedVariable)!, options);
+				// using the same options for ranking chart as forecast chart
+				const rankingOptions = _.cloneDeep(options);
+				const rankingData = rankingScores.value.get(selectedVariable)!;
+				const maxParametersShownCount = 20;
+				// Filter out parameters with 0 score, show top 20 parameters
+				const foramttedData = Array.from(rankingData)
+					.map(([parameter, score]) => ({ parameter, score }))
+					.filter((d) => d.score !== 0)
+					.sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+					.slice(0, maxParametersShownCount);
+
+				rankingOptions.title = '';
+				if (foramttedData.length === maxParametersShownCount) {
+					rankingOptions.title = `Top ${maxParametersShownCount} most sensitive parameters displayed.`;
+				}
+
+				// total parameters - shown parameters
+				const notShownCount = getParameters(modelConfig?.value as ModelConfiguration).length - foramttedData.length;
+				if (notShownCount > 0) rankingOptions.title += ` ${notShownCount} parameter(s) not shown.`;
+
+				const rankingSpec = createSensitivityRankingChart(foramttedData, rankingOptions);
 
 				const lineSpec = createForecastChart(
 					{
@@ -1307,7 +1328,11 @@ export function useCharts(
 			timepoint.value = chartSettings.value[0].timepoint;
 
 			if (!hasAllScores || hasTimepointChanged) {
-				const allParameters = model?.value?.semantics?.ode.parameters?.map((p) => p.id) ?? [];
+				// only ranked non-constant parameters
+				const allParameters =
+					getParameters(modelConfig?.value as ModelConfiguration)
+						.filter((p) => p.distribution.type !== DistributionType.Constant)
+						.map((p) => p.referenceId) ?? [];
 				const sliceData = chartData.value.result.filter((d) => d.timepoint_id === timepoint.value);
 				rankingScores.value = await pythonInstance.getRankingScores(sliceData, allSelectedVariables, allParameters);
 			}

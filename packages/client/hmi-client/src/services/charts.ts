@@ -1341,22 +1341,7 @@ export function createSimulateSensitivityScatter(samplingLayer: SensitivityChart
 /*                          Sensitivity Ranking Chart                         */
 /* -------------------------------------------------------------------------- */
 
-export function createSensitivityRankingChart(data: Map<string, number>, options: BaseChartOptions) {
-	// use only 20 highest scores
-	const parametersShownCount = 20;
-	const foramttedData = Array.from(data)
-		.map(([parameter, score]) => ({ parameter, score }))
-		.filter((d) => d.score !== 0)
-		.sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
-		.slice(0, parametersShownCount);
-
-	let title = '';
-	if (foramttedData.length === parametersShownCount) {
-		title = `Top ${parametersShownCount} most sensitive parameters displayed.`;
-	}
-	const notShownCount = data.size - foramttedData.length;
-	if (title && notShownCount > 0) title += ` ${notShownCount} parameters not shown.`;
-
+export function createSensitivityRankingChart(data: { parameter: string; score: number }[], options: BaseChartOptions) {
 	const globalFont = 'Figtree';
 
 	const spec: any = {
@@ -1368,13 +1353,13 @@ export function createSensitivityRankingChart(data: Map<string, number>, options
 			}
 		},
 		title: {
-			text: title,
+			text: options.title,
 			anchor: 'start',
 			subtitle: ' ',
 			subtitlePadding: 0
 		},
 		description: 'Sensitivity score ranking chart',
-		data: { values: foramttedData },
+		data: { values: data },
 		transform: [
 			{
 				calculate: 'abs(datum.score)',
