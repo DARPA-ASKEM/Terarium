@@ -296,7 +296,8 @@ export const collapseTemplates = (miraModel: MiraModel) => {
 		if (check.has(key)) return;
 
 		uniqueTemplates.push(t);
-		check.set(key, ++keyCounter);
+		check.set(key, keyCounter);
+		keyCounter++;
 	});
 
 	// 3 Rename and sanitize everything
