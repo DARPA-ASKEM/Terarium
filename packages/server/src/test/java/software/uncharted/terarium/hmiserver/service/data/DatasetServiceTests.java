@@ -60,7 +60,7 @@ public class DatasetServiceTests extends TerariumApplicationTests {
 		final Map<String, String> context = new HashMap<>();
 		context.put("hello", "world-" + key);
 		context.put("foo", "bar-" + key);
-		grounding.setContext(context);
+		grounding.setModifiers(context);
 		return grounding;
 	}
 
@@ -116,16 +116,16 @@ public class DatasetServiceTests extends TerariumApplicationTests {
 			Assertions.assertNotNull(col.getGrounding().getCreatedOn());
 			Assertions.assertNotNull(col.getGrounding().getIdentifiers());
 			Assertions.assertEquals(col.getGrounding().getIdentifiers().size(), 1);
-			Assertions.assertNotNull(col.getGrounding().getContext());
-			Assertions.assertEquals(col.getGrounding().getContext().size(), 2);
+			Assertions.assertNotNull(col.getGrounding().getModifiers());
+			Assertions.assertEquals(col.getGrounding().getModifiers().size(), 2);
 		}
 
 		Assertions.assertNotNull(after.getGrounding());
 		Assertions.assertNotNull(after.getGrounding().getId());
 		Assertions.assertNotNull(after.getGrounding().getCreatedOn());
 		Assertions.assertNotNull(after.getGrounding().getIdentifiers());
-		Assertions.assertNotNull(after.getGrounding().getContext());
-		Assertions.assertEquals(after.getGrounding().getContext().size(), 2);
+		Assertions.assertNotNull(after.getGrounding().getModifiers());
+		Assertions.assertEquals(after.getGrounding().getModifiers().size(), 2);
 	}
 
 	@Test
@@ -165,8 +165,8 @@ public class DatasetServiceTests extends TerariumApplicationTests {
 			Assertions.assertNotNull(col.getGrounding().getCreatedOn());
 			Assertions.assertNotNull(col.getGrounding().getIdentifiers());
 			Assertions.assertEquals(col.getGrounding().getIdentifiers().size(), 1);
-			Assertions.assertNotNull(col.getGrounding().getContext());
-			Assertions.assertEquals(col.getGrounding().getContext().size(), 2);
+			Assertions.assertNotNull(col.getGrounding().getModifiers());
+			Assertions.assertEquals(col.getGrounding().getModifiers().size(), 2);
 		}
 	}
 
@@ -248,7 +248,7 @@ public class DatasetServiceTests extends TerariumApplicationTests {
 
 		Assertions.assertNotEquals(dataset.getId(), cloned.getId());
 		Assertions.assertEquals(dataset.getGrounding().getIdentifiers(), cloned.getGrounding().getIdentifiers());
-		Assertions.assertEquals(dataset.getGrounding().getContext(), cloned.getGrounding().getContext());
+		Assertions.assertEquals(dataset.getGrounding().getModifiers(), cloned.getGrounding().getModifiers());
 		Assertions.assertEquals(dataset.getColumns().size(), cloned.getColumns().size());
 		for (int i = 0; i < dataset.getColumns().size(); i++) {
 			Assertions.assertEquals(dataset.getColumns().get(i).getName(), cloned.getColumns().get(i).getName());
@@ -267,8 +267,8 @@ public class DatasetServiceTests extends TerariumApplicationTests {
 				cloned.getColumns().get(i).getGrounding().getIdentifiers()
 			);
 			Assertions.assertEquals(
-				dataset.getColumns().get(i).getGrounding().getContext(),
-				cloned.getColumns().get(i).getGrounding().getContext()
+				dataset.getColumns().get(i).getGrounding().getModifiers(),
+				cloned.getColumns().get(i).getGrounding().getModifiers()
 			);
 		}
 	}

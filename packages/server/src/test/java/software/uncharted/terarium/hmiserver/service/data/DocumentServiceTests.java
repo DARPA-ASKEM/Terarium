@@ -55,10 +55,10 @@ public class DocumentServiceTests extends TerariumApplicationTests {
 	static Grounding createGrounding(final String key) {
 		final DKG dkg = new DKG("curie:test", "maria", "", null, null);
 		final Grounding grounding = new Grounding(dkg);
-		final Map<String, String> context = new HashMap<>();
-		context.put("hello", "world-" + key);
-		context.put("foo", "bar-" + key);
-		grounding.setContext(context);
+		final Map<String, String> modifiers = new HashMap<>();
+		modifiers.put("hello", "world-" + key);
+		modifiers.put("foo", "bar-" + key);
+		grounding.setModifiers(modifiers);
 		return grounding;
 	}
 
@@ -101,8 +101,8 @@ public class DocumentServiceTests extends TerariumApplicationTests {
 		Assertions.assertNotNull(after.getGrounding().getId());
 		Assertions.assertNotNull(after.getGrounding().getCreatedOn());
 		Assertions.assertNotNull(after.getGrounding().getIdentifiers());
-		Assertions.assertNotNull(after.getGrounding().getContext());
-		Assertions.assertEquals(after.getGrounding().getContext().size(), 2);
+		Assertions.assertNotNull(after.getGrounding().getModifiers());
+		Assertions.assertEquals(after.getGrounding().getModifiers().size(), 2);
 	}
 
 	@Test
@@ -200,6 +200,6 @@ public class DocumentServiceTests extends TerariumApplicationTests {
 
 		Assertions.assertNotEquals(documentAsset.getId(), cloned.getId());
 		Assertions.assertEquals(documentAsset.getGrounding().getIdentifiers(), cloned.getGrounding().getIdentifiers());
-		Assertions.assertEquals(documentAsset.getGrounding().getContext(), cloned.getGrounding().getContext());
+		Assertions.assertEquals(documentAsset.getGrounding().getModifiers(), cloned.getGrounding().getModifiers());
 	}
 }

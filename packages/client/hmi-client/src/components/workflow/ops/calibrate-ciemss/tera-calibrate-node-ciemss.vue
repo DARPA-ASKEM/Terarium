@@ -8,7 +8,7 @@
 				:chart-settings="[...selectedInterventionSettings, ...selectedVariableSettings]"
 				:are-embed-actions-visible="true"
 				:placeholder="placeholderText"
-				:progress="processingMessage"
+				:processing="processingMessage"
 			/>
 			<vega-chart v-if="lossChartSpec" :are-embed-actions-visible="false" :visualization-spec="lossChartSpec" />
 		</section>
