@@ -12,14 +12,14 @@ from common.utils import validate_schema, model_config_adapter, get_image_format
 SCHEMAS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schemas')
 
 
-def enrich_model_chain(llm: LlmToolsInterface, amr: str, research_paper: str) -> dict:
+def enrich_model_chain(llm: LlmToolsInterface, amr: str, document: Optional[str]) -> dict:
     print("Uploading and validating model enrichment schema...")
-    config_path = os.path.join(SCHEMAS_DIR, 'amr_enrichment.json')
+    config_path = os.path.join(SCHEMAS_DIR, 'model_enrichment.json')
     with open(config_path, 'r') as config_file:
         response_schema = json.load(config_file)
     validate_schema(response_schema)
 
-    prompt = llm.create_enrich_model_prompt(amr, research_paper, response_schema)
+    prompt = llm.create_enrich_model_prompt(amr, document, response_schema)
     return llm.send_to_llm_with_json_output(prompt, response_schema)
 
 

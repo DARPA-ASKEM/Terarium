@@ -28,14 +28,19 @@ import software.uncharted.terarium.hmiserver.service.data.DKGService;
 @Slf4j
 public class TaskUtilities {
 
-	public static TaskRequest getEnrichAMRTaskRequest(String userId, DocumentAsset document, Model model, UUID projectId)
-		throws IOException {
+	public static TaskRequest getEnrichModelTaskRequest(
+		String userId,
+		DocumentAsset document,
+		Model model,
+		UUID projectId,
+		Boolean overwrite
+	) throws IOException {
 		final ObjectMapper objectMapper = new ObjectMapper();
 
-		final EnrichAmrResponseHandler.Input input = new EnrichAmrResponseHandler.Input();
+		final EnrichModelResponseHandler.Input input = new EnrichModelResponseHandler.Input();
 		if (document != null) {
 			try {
-				input.setResearchPaper(objectMapper.writeValueAsString(document.getExtractions()));
+				input.setDocument(objectMapper.writeValueAsString(document.getExtractions()));
 			} catch (JsonProcessingException e) {
 				throw new IOException("Unable to serialize document text");
 			}
@@ -46,7 +51,7 @@ public class TaskUtilities {
 		// Create the task
 		final TaskRequest req = new TaskRequest();
 		req.setType(TaskRequest.TaskType.GOLLM);
-		req.setScript(EnrichAmrResponseHandler.NAME);
+		req.setScript(EnrichModelResponseHandler.NAME);
 		req.setUserId(userId);
 
 		try {
@@ -57,7 +62,7 @@ public class TaskUtilities {
 
 		req.setProjectId(projectId);
 
-		final EnrichAmrResponseHandler.Properties props = new EnrichAmrResponseHandler.Properties();
+		final EnrichModelResponseHandler.Properties props = new EnrichModelResponseHandler.Properties();
 		props.setProjectId(projectId);
 		if (document != null) props.setDocumentId(document.getId());
 		props.setModelId(model.getId());

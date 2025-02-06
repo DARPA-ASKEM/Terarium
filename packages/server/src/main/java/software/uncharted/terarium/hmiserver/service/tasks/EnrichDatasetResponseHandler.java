@@ -147,6 +147,12 @@ public class EnrichDatasetResponseHandler extends TaskResponseHandler {
 					});
 			}
 
+			if (dataset.getColumns() != null && !dataset.getColumns().isEmpty()) {
+				final List<DatasetColumn> columns = dataset.getColumns();
+				TaskUtilities.getCuratedGrounding(columns);
+				dataset.setColumns(columns);
+			}
+
 			// Update the dataset
 			datasetService.updateAsset(dataset, dataset.getId(), ASSUME_WRITE_PERMISSION_ON_BEHALF_OF_USER);
 		} catch (final Exception e) {

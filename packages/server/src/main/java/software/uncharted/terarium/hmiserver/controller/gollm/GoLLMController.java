@@ -55,8 +55,8 @@ import software.uncharted.terarium.hmiserver.service.tasks.ChartAnnotationRespon
 import software.uncharted.terarium.hmiserver.service.tasks.CompareModelsResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.ConfigureModelFromDatasetResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.ConfigureModelFromDocumentResponseHandler;
-import software.uncharted.terarium.hmiserver.service.tasks.EnrichAmrResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.EnrichDatasetResponseHandler;
+import software.uncharted.terarium.hmiserver.service.tasks.EnrichModelResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.EquationsFromImageResponseHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.GenerateSummaryHandler;
 import software.uncharted.terarium.hmiserver.service.tasks.InterventionsFromDatasetResponseHandler;
@@ -86,7 +86,7 @@ public class GoLLMController {
 	private final CompareModelsResponseHandler compareModelsResponseHandler;
 	private final ConfigureModelFromDatasetResponseHandler configureModelFromDatasetResponseHandler;
 	private final ConfigureModelFromDocumentResponseHandler configureModelFromDocumentResponseHandler;
-	private final EnrichAmrResponseHandler enrichAmrResponseHandler;
+	private final EnrichModelResponseHandler enrichModelResponseHandler;
 	private final EnrichDatasetResponseHandler enrichDatasetResponseHandler;
 	private final EquationsFromImageResponseHandler equationsFromImageResponseHandler;
 	private final ChartAnnotationResponseHandler chartAnnotationResponseHandler;
@@ -102,7 +102,7 @@ public class GoLLMController {
 		taskService.addResponseHandler(compareModelsResponseHandler);
 		taskService.addResponseHandler(configureModelFromDatasetResponseHandler);
 		taskService.addResponseHandler(configureModelFromDocumentResponseHandler);
-		taskService.addResponseHandler(enrichAmrResponseHandler);
+		taskService.addResponseHandler(enrichModelResponseHandler);
 		taskService.addResponseHandler(enrichDatasetResponseHandler);
 		taskService.addResponseHandler(equationsFromImageResponseHandler);
 		taskService.addResponseHandler(chartAnnotationResponseHandler);
@@ -878,71 +878,12 @@ public class GoLLMController {
 			@ApiResponse(responseCode = "500", description = "There was an issue dispatching the request", content = @Content)
 		}
 	)
-	public ResponseEntity<UUID> createEnrichModelMetadataTask(
+	public ResponseEntity<TaskResponse> createEnrichModelMetadataTask(
 		@RequestParam(name = "model-id", required = true) final UUID modelId,
 		@RequestParam(name = "document-id", required = false) final UUID documentId,
-		@RequestParam(name = "mode", required = false, defaultValue = "SYNC") final TaskMode mode,
-		@RequestParam(name = "project-id", required = false) final UUID projectId,
-		@RequestParam(name = "overwrite", required = false, defaultValue = "false") final boolean overwrite
-	) {
-		final Schema.Permission permission = projectService.checkPermissionCanRead(
-			currentUserService.get().getId(),
-			projectId
-		);
-
-		try {
-			modelService.enrichModel(projectId, documentId, modelId, permission, true);
-		} catch (final IOException e) {
-			log.error("An error occurred while trying to retrieve information necessary for model enrichment.", e);
-			throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, messages.get("postgres.service-unavailable"));
-		} catch (ExecutionException e) {
-			log.error("Error while waiting for task response", e);
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, messages.get("task.gollm.execution-failure"));
-		} catch (InterruptedException e) {
-			log.warn("Interrupted while waiting for task response", e);
-			throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, messages.get("task.gollm.interrupted"));
-		} catch (TimeoutException e) {
-			log.warn("Timeout while waiting for task response", e);
-			throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, messages.get("task.gollm.timeout"));
-		}
-
-		// check that we have a model to return
-		final Optional<Model> model = modelService.getAsset(modelId, permission);
-		if (model.isEmpty()) {
-			log.error(String.format("The model %s does not exist.", modelId));
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, messages.get("model.not-found"));
-		}
-
-		return ResponseEntity.ok().body(model.get().getId());
-	}
-
-	@GetMapping("/enrich-amr")
-	@Secured(Roles.USER)
-	@Operation(summary = "Dispatch a `GoLLM Enrich AMR` task")
-	@ApiResponses(
-		value = {
-			@ApiResponse(
-				responseCode = "200",
-				description = "Dispatched successfully",
-				content = @Content(
-					mediaType = "application/json",
-					schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = TaskResponse.class)
-				)
-			),
-			@ApiResponse(
-				responseCode = "404",
-				description = "The provided model or document arguments are not found",
-				content = @Content
-			),
-			@ApiResponse(responseCode = "500", description = "There was an issue dispatching the request", content = @Content)
-		}
-	)
-	public ResponseEntity<TaskResponse> createEnrichAMRTask(
-		@RequestParam(name = "model-id", required = true) final UUID modelId,
-		@RequestParam(name = "document-id", required = true) final UUID documentId,
 		@RequestParam(name = "mode", required = false, defaultValue = "ASYNC") final TaskMode mode,
 		@RequestParam(name = "project-id", required = false) final UUID projectId,
-		@RequestParam(name = "overwrite", required = false, defaultValue = "false") final boolean overwrite
+		@RequestParam(name = "overwrite", required = false, defaultValue = "true") final boolean overwrite
 	) {
 		final Schema.Permission permission = projectService.checkPermissionCanRead(
 			currentUserService.get().getId(),
@@ -950,16 +891,17 @@ public class GoLLMController {
 		);
 
 		// Grab the document
-		final Optional<DocumentAsset> document = documentAssetService.getAsset(documentId, permission);
-		if (document.isEmpty()) {
-			log.warn(String.format("Document %s not found", documentId));
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("document.not-found"));
-		}
+		DocumentAsset document = null;
+		if (documentId != null) {
+			document = documentAssetService
+				.getAsset(documentId, permission)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("document.not-found")));
 
-		// make sure there is text in the document
-		if (document.get().getText() == null || document.get().getText().isEmpty()) {
-			log.warn(String.format("Document %s has no extracted text", documentId));
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("document.extraction.not-done"));
+			// make sure there is a text in the document
+			if (document.getText() == null || document.getText().isBlank()) {
+				log.warn(String.format("Document %s has no extracted text", documentId));
+				throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("document.extraction.not-done"));
+			}
 		}
 
 		// Grab the model
@@ -971,14 +913,15 @@ public class GoLLMController {
 
 		final TaskRequest req;
 		try {
-			req = TaskUtilities.getEnrichAMRTaskRequest(
+			req = TaskUtilities.getEnrichModelTaskRequest(
 				currentUserService.get().getId(),
-				document.get(),
+				document,
 				model.get(),
-				projectId
+				projectId,
+				overwrite
 			);
 		} catch (final IOException e) {
-			log.error("Unable to create Enrich AMR task", e);
+			log.error("Unable to create Enrich Dataset task", e);
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, messages.get("generic.io-error.write"));
 		}
 
@@ -1026,7 +969,7 @@ public class GoLLMController {
 	public ResponseEntity<TaskResponse> createEnrichDatasetTask(
 		@RequestParam(name = "dataset-id", required = true) final UUID datasetId,
 		@RequestParam(name = "document-id", required = false) final UUID documentId,
-		@RequestParam(name = "mode", required = false, defaultValue = "SYNC") final TaskMode mode,
+		@RequestParam(name = "mode", required = false, defaultValue = "ASYNC") final TaskMode mode,
 		@RequestParam(name = "project-id", required = false) final UUID projectId,
 		@RequestParam(name = "overwrite", required = false, defaultValue = "true") final boolean overwrite
 	) {
@@ -1085,26 +1028,6 @@ public class GoLLMController {
 		} catch (final ExecutionException e) {
 			log.error("Error while waiting for task response", e);
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, messages.get("task.gollm.execution-failure"));
-		}
-
-		// Update Grounding
-		final Optional<Dataset> newDataset = datasetService.getAsset(datasetId, permission);
-		if (newDataset.isEmpty()) {
-			log.warn(String.format("Dataset %s not found", datasetId));
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, messages.get("dataset.not-found"));
-		}
-
-		if (newDataset.get().getColumns() != null && !newDataset.get().getColumns().isEmpty()) {
-			final List<DatasetColumn> columns = newDataset.get().getColumns();
-			TaskUtilities.getCuratedGrounding(columns);
-		}
-
-		try {
-			datasetService.updateAsset(newDataset.get(), projectId, permission);
-		} catch (final IOException e) {
-			final String errorString = String.format("Failed to update dataset %s", datasetId);
-			log.warn(errorString);
-			// exception is not thrown here because we don't want to *fail* because of this?
 		}
 
 		return ResponseEntity.ok().body(resp);
