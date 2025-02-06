@@ -3,7 +3,16 @@
  */
 
 import API from '@/api/api';
-import type { Curies, DatasetColumn, DKG, EntitySimilarityResult, State, Model, Grounding } from '@/types/Types';
+import type {
+	Curies,
+	DatasetColumn,
+	DKG,
+	EntitySimilarityResult,
+	State,
+	Model,
+	Grounding,
+	Observable
+} from '@/types/Types';
 import { logger } from '@/utils/logger';
 import { isEmpty } from 'lodash';
 import { CalibrateMap } from '@/services/calibrate-workflow';
@@ -173,6 +182,7 @@ function getUniqueIdentifierCuriesFromGroundings(groundings: Grounding[]): DKG['
 /**
  * Auto map identifier concept from source to target based on similarity
  * Takes in 2 lists of generic {id, groundings} and returns the singular closest match for each element in list one.
+ * Only matches to the lowest list from either the sources or targets.
  */
 async function autoMappingGrounding(sources: Entity[], targets: Entity[]): Promise<CalibrateMap[]> {
 	// Get all uniques identifier curies to a list to make one call to MIRA
@@ -185,32 +195,35 @@ async function autoMappingGrounding(sources: Entity[], targets: Entity[]): Promi
 	// Filter out anything with a similarity too small
 	allSimilarity = allSimilarity.filter((ele) => ele.similarity >= 0.5);
 
-	// Make a Map of the target curies to the ids
-	const targetCurieMap = new Map(
-		targets.map((target) => [getCurieFromGroundingIdentifier(target.grounding.identifiers), target.id])
+	// Check if the source or target list is smaller
+	const isSourceSmaller = sources.length < targets.length;
+
+	// Make a list of the longest list to map the curies to the ids
+	const curieMap = new Map(
+		(isSourceSmaller ? targets : sources).map((entity) => [
+			getCurieFromGroundingIdentifier(entity.grounding.identifiers),
+			entity.id
+		])
 	);
 
-	return sources
-		.map((source) => {
-			// Get the curie from the source grounding
-			const sourceCurie = getCurieFromGroundingIdentifier(source.grounding.identifiers);
-
-			// Get the best match from all the targets
+	// Go through the smallest list and find similarities
+	return (isSourceSmaller ? sources : targets)
+		.map((entity) => {
+			const curie = getCurieFromGroundingIdentifier(entity.grounding.identifiers);
 			const bestMatch = allSimilarity
-				.filter((similarity) => similarity.source === sourceCurie)
+				.filter((similarity) => (isSourceSmaller ? similarity.source : similarity.target) === curie)
 				.reduce((best, curr) => (curr.similarity > best.similarity ? curr : best), {
 					similarity: -Infinity,
-					target: ''
+					target: '',
+					source: ''
 				});
 
-			// Get the id of the target from the map
-			const targetId = targetCurieMap.get(bestMatch.target);
+			const matchedId = curieMap.get(isSourceSmaller ? bestMatch.target : bestMatch.source);
 
-			// Return the mapping if a target was found
-			return targetId
+			return matchedId
 				? {
-						modelVariable: source.id,
-						datasetVariable: targetId
+						modelVariable: isSourceSmaller ? entity.id : matchedId,
+						datasetVariable: isSourceSmaller ? matchedId : entity.id
 					}
 				: null;
 		})
@@ -218,15 +231,18 @@ async function autoMappingGrounding(sources: Entity[], targets: Entity[]): Promi
 }
 
 /**
- Takes in a list of states and a list of dataset columns.
+ Takes in a list of states/observables and a list of dataset columns.
  Transforms them into generic entities with {id, Grounding}
  rewrites result in form {modelVariable, datasetVariable}
  */
-async function autoCalibrationMapping(modelOptions: State[], datasetColumns: DatasetColumn[]): Promise<CalibrateMap[]> {
+async function autoCalibrationMapping(
+	modelOptions: (State | Observable)[],
+	datasetColumns: DatasetColumn[]
+): Promise<CalibrateMap[]> {
 	// Sources are modelOptions
 	const sources: Entity[] = modelOptions
-		.filter((state) => state.grounding)
-		.map((state) => ({ id: state.id, grounding: state.grounding }) as Entity);
+		.filter((variable) => variable.grounding)
+		.map((variable) => ({ id: variable.id, grounding: variable.grounding }) as Entity);
 
 	// Targets are datasetColumns
 	const targets: Entity[] = datasetColumns

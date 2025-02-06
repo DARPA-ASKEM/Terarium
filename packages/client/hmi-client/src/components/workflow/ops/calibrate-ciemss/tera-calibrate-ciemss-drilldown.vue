@@ -68,7 +68,7 @@
 										class="w-full"
 										:placeholder="mappingDropdownPlaceholder"
 										v-model="data[field]"
-										:options="modelStateOptions?.map((ele) => ele.referenceId ?? ele.id)"
+										:options="modelOptions?.map((option) => option.id)"
 										@change="updateMapping()"
 									/>
 								</template>
@@ -540,7 +540,9 @@ import {
 	ModelParameter,
 	AssetType,
 	Dataset,
-	Model
+	Model,
+	Observable,
+	State
 } from '@/types/Types';
 import { CiemssPresetTypes, DrilldownTabs, ChartSettingType } from '@/types/common';
 import { getActiveOutput, getTimespan, nodeMetadata } from '@/components/workflow/util';
@@ -556,7 +558,6 @@ import {
 	CiemssMethodOptions
 } from '@/services/models/simulation-service';
 import { getModelConfigurationById } from '@/services/model-configurations';
-
 import { WorkflowNode } from '@/types/workflow';
 import { createForecastChart, AUTOSIZE } from '@/services/charts';
 import VegaChart from '@/components/widgets/VegaChart.vue';
@@ -641,8 +642,8 @@ const qualityPreset = Object.freeze({
 	learningRate: 0.03
 });
 
-// Model variables checked in the model configuration will be options in the mapping dropdown
-const modelStateOptions = ref<any[] | undefined>();
+// Model variables checked in the model will be options in the mapping dropdown
+const modelOptions = ref<(State | Observable)[] | undefined>();
 
 const modelParameters = ref<ModelParameter[]>([]);
 
@@ -694,7 +695,7 @@ const isLoading = computed<boolean>(
 const mapping = ref<CalibrateMap[]>(props.node.state.mapping);
 
 const mappingDropdownPlaceholder = computed(() => {
-	if (!isEmpty(modelStateOptions.value) && !isEmpty(datasetColumns.value)) return 'Select variable';
+	if (!isEmpty(modelOptions.value) && !isEmpty(datasetColumns.value)) return 'Select variable';
 	return 'Please wait...';
 });
 
@@ -1022,15 +1023,15 @@ function deleteMapRow(index: number) {
 }
 
 async function getAutoMapping() {
-	if (!modelStateOptions.value || isEmpty(modelStateOptions.value)) {
-		toast.error('', 'No model states to map with');
+	if (!modelOptions.value || isEmpty(modelOptions.value)) {
+		toast.error('', 'No model states or observables to map with');
 		return;
 	}
 	if (!datasetColumns.value || isEmpty(datasetColumns.value)) {
 		toast.error('', 'No dataset columns to map with');
 		return;
 	}
-	mapping.value = await autoCalibrationMapping(modelStateOptions.value, datasetColumns.value);
+	mapping.value = await autoCalibrationMapping(modelOptions.value, datasetColumns.value);
 	const state = cloneDeep(props.node.state);
 	state.mapping = mapping.value;
 	emit('update-state', state);
@@ -1052,19 +1053,13 @@ const initialize = async () => {
 	};
 
 	// Model configuration input
-	const {
-		model: m,
-		modelConfiguration,
-		modelOptions,
-		modelPartUnits,
-		modelPartTypes
-	} = await setupModelInput(modelConfigId.value);
-	modelConfig.value = modelConfiguration ?? null;
-	model.value = m ?? null;
-	modelStateOptions.value = modelOptions;
+	const modelInput = await setupModelInput(modelConfigId.value);
+	modelConfig.value = modelInput.modelConfiguration ?? null;
+	model.value = modelInput.model ?? null;
+	modelOptions.value = modelInput.modelOptions;
 	modelParameters.value = model.value ? getParameters(model.value) : [];
-	modelVarUnits.value = modelPartUnits ?? {};
-	modelPartTypesMap.value = modelPartTypes ?? {};
+	modelVarUnits.value = modelInput.modelPartUnits ?? {};
+	modelPartTypesMap.value = modelInput.modelPartTypes ?? {};
 
 	// dataset input
 	if (datasetId.value) {
