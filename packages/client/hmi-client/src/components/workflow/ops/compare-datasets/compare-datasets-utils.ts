@@ -89,11 +89,17 @@ export const transformRowValuesRelativeToBaseline = (
 			transformed[key] = value;
 			return;
 		}
+		const eps = 1e-6;
 		const baselineValue = row[`${dataKey}:${baselineDataIndex}`];
 		if (plotType === PlotValue.DIFFERENCE) {
 			transformed[key] = value - baselineValue;
 		} else if (plotType === PlotValue.PERCENTAGE) {
-			transformed[key] = ((value - baselineValue) / baselineValue) * 100;
+			// set to 0 if value - baselineValue is 0
+			if (Math.abs(value - baselineValue) <= eps) {
+				transformed[key] = 0;
+			} else {
+				transformed[key] = ((value - baselineValue + eps) / (baselineValue + eps)) * 100;
+			}
 		} else if (plotType === PlotValue.VALUE) {
 			transformed[key] = value;
 		}
