@@ -2,6 +2,7 @@
 html,
 body {
 	overflow-x: hidden;
+	overscroll-behavior-x: none; /* Stop browser back navigation on overscroll */
 	position: relative;
 }
 
