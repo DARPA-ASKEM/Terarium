@@ -281,12 +281,11 @@
 					<section class="pb-3" v-if="modelConfig && csvAsset">
 						<div class="mx-4" ref="chartWidthDiv"></div>
 						<Accordion multiple :active-index="currentActiveIndicies" class="px-2">
-							<!-- Parameter distributions section -->
+							<!-- Paramater distributions section -->
 							<AccordionTab v-if="selectedParameterSettings.length > 0" header="Parameter distributions">
 								<template v-for="setting of selectedParameterSettings" :key="setting.id">
-									<div class="flex flex-column">
+									<div v-if="parameterDistributionCharts[setting.id]" class="flex flex-column">
 										<vega-chart
-											v-if="parameterDistributionCharts[setting.id]"
 											expandable
 											:are-embed-actions-visible="true"
 											:visualization-spec="parameterDistributionCharts[setting.id].histogram"
@@ -1073,9 +1072,13 @@ const initialize = async () => {
 		if (dataset.value) {
 			currentDatasetFileName.value = getFileName(dataset.value);
 
-			setupCsvAsset(dataset.value).then((csv) => {
-				csvAsset.value = csv;
-			});
+			try {
+				setupCsvAsset(dataset.value).then((csv) => {
+					csvAsset.value = csv;
+				});
+			} catch (e) {
+				console.error(e);
+			}
 		}
 	}
 
