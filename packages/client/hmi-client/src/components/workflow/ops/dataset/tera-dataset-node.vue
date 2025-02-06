@@ -38,7 +38,7 @@ const props = defineProps<{
 	node: WorkflowNode<DatasetOperationState>;
 }>();
 
-const emit = defineEmits(['append-output', 'update-state', 'open-drilldown']);
+const emit = defineEmits(['append-output', 'open-drilldown']);
 
 const datasets = computed(() => useProjects().getActiveProjectAssets(AssetType.Dataset));
 const dataset = ref<Dataset | null>(null);
@@ -50,15 +50,17 @@ async function getDatasetById(id: string) {
 		// Once a dataset is selected the output is assigned here,
 		const outputs = props.node.outputs;
 		if (canPropagateResource(outputs)) {
-			emit('update-state', {
-				datasetId: dataset.value.id
-			});
-
-			emit('append-output', {
-				type: 'datasetId',
-				label: dataset.value.name,
-				value: [dataset.value.id]
-			});
+			emit(
+				'append-output',
+				{
+					type: 'datasetId',
+					label: dataset.value.name,
+					value: [dataset.value.id]
+				},
+				{
+					datasetId: dataset.value.id
+				}
+			);
 		}
 	}
 }

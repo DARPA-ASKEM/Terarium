@@ -54,7 +54,7 @@ const props = defineProps<{
 	node: WorkflowNode<ModelOperationState>;
 }>();
 
-const emit = defineEmits(['update-state', 'append-output', 'open-drilldown']);
+const emit = defineEmits(['append-output', 'open-drilldown']);
 const models = computed(() => useProjects().getActiveProjectAssets(AssetType.Model));
 
 enum ModelNodeView {
@@ -74,12 +74,16 @@ async function getModelById(modelId: string) {
 		if (canPropagateResource(outputs)) {
 			const state = _.cloneDeep(props.node.state);
 			state.modelId = model.value?.id;
-			emit('update-state', state);
-			emit('append-output', {
-				type: 'modelId',
-				label: model.value.header.name,
-				value: [model.value.id]
-			});
+
+			emit(
+				'append-output',
+				{
+					type: 'modelId',
+					label: model.value.header.name,
+					value: [model.value.id]
+				},
+				state
+			);
 		}
 	}
 }
